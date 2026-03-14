@@ -1,7 +1,8 @@
 fastapi
 uvicorn
-databases[postgresql]
+databases[postgresql,aiosqlite]
 sqlalchemy
 asyncpg
 psycopg2-binary
 pydantic
+aiosqlite
