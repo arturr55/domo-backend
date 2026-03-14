@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from typing import Optional, List
 import databases
 import sqlalchemy
-from sqlalchemy import select, func, or_
+from sqlalchemy import select, func, or_, text
 import os
 import json
 from datetime import datetime
@@ -56,7 +56,9 @@ listings_table = sqlalchemy.Table(
 
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = sqlalchemy.create_engine(DATABASE_URL, connect_args=connect_args)
-metadata.create_all(engine)
+
+with engine.begin() as conn:
+    metadata.create_all(conn)
 
 app = FastAPI(title="Домо API")
 
