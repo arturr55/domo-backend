@@ -4,4 +4,4 @@ databases[postgresql]
 sqlalchemy
 asyncpg
 psycopg2-binary
-pydantic==1.10.13
+pydantic

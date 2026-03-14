@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional, List
+from pydantic import ConfigDict
 import databases
 import sqlalchemy
 from sqlalchemy import select, func, or_, text
@@ -75,6 +76,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # ── Pydantic ────────────────────────────────────────────────────────────────────
 
 class ListingCreate(BaseModel):
+    model_config = ConfigDict(arbitrary_types_allowed=True)
     title: str
     description: Optional[str] = None
     price: int
