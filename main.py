@@ -73,6 +73,8 @@ with engine.begin() as conn:
     for col_sql in [
         "ALTER TABLE listings ADD COLUMN metro_station VARCHAR(100)",
         "ALTER TABLE listings ADD COLUMN metro_minutes INTEGER",
+        # settings table fallback (если create_all не сработал)
+        "CREATE TABLE IF NOT EXISTS settings (key VARCHAR(100) PRIMARY KEY, value TEXT)",
     ]:
         try:
             conn.execute(text(col_sql))
@@ -82,7 +84,8 @@ with engine.begin() as conn:
     for key, val in [("moderation_enabled", "false"), ("listing_ttl_days", "0")]:
         try:
             conn.execute(text(
-                "INSERT INTO settings (key, value) VALUES (:k, :v)"
+                "INSERT INTO settings (key, value) VALUES (:k, :v) "
+                "ON CONFLICT (key) DO NOTHING"
             ), {"k": key, "v": val})
         except Exception:
             pass
@@ -180,22 +183,28 @@ def check_admin(token: str):
     if token != ADMIN_TOKEN:
         raise HTTPException(status_code=403, detail="Нет доступа")
 
-async def get_setting(key: str) -> str:
-    row = await database.fetch_one(
-        settings_table.select().where(settings_table.c.key == key)
-    )
-    return row["value"] if row else ""
+async def get_setting(key: str, default: str = "") -> str:
+    try:
+        row = await database.fetch_one(
+            settings_table.select().where(settings_table.c.key == key)
+        )
+        return row["value"] if row else default
+    except Exception:
+        return default
 
 async def set_setting(key: str, value: str):
-    existing = await database.fetch_one(
-        settings_table.select().where(settings_table.c.key == key)
-    )
-    if existing:
-        await database.execute(
-            settings_table.update().where(settings_table.c.key == key).values(value=value)
+    try:
+        existing = await database.fetch_one(
+            settings_table.select().where(settings_table.c.key == key)
         )
-    else:
-        await database.execute(settings_table.insert().values(key=key, value=value))
+        if existing:
+            await database.execute(
+                settings_table.update().where(settings_table.c.key == key).values(value=value)
+            )
+        else:
+            await database.execute(settings_table.insert().values(key=key, value=value))
+    except Exception:
+        pass
 
 async def cleanup_old_listings():
     while True:
