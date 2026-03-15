@@ -83,47 +83,47 @@ payments_table = sqlalchemy.Table(
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = sqlalchemy.create_engine(DATABASE_URL, connect_args=connect_args)
 
+# Run each migration in its own transaction so a failed ALTER doesn't abort the rest
+def _run_migration(sql: str):
+    try:
+        with engine.begin() as _conn:
+            _conn.execute(text(sql))
+    except Exception:
+        pass
+
 with engine.begin() as conn:
     metadata.create_all(conn)
-    for col_sql in [
+
+# DDL migrations — each in its own transaction
+_is_pg = "postgresql" in DATABASE_URL
+for _col_sql in [
+    # Use IF NOT EXISTS (PostgreSQL 9.6+) to avoid "column already exists" errors
+    "ALTER TABLE listings ADD COLUMN IF NOT EXISTS metro_station VARCHAR(100)",
+    "ALTER TABLE listings ADD COLUMN IF NOT EXISTS metro_minutes INTEGER",
+    "ALTER TABLE listings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'free'",
+    # SQLite fallback variants (no IF NOT EXISTS support for ALTER TABLE)
+    *([] if _is_pg else [
         "ALTER TABLE listings ADD COLUMN metro_station VARCHAR(100)",
         "ALTER TABLE listings ADD COLUMN metro_minutes INTEGER",
-        "ALTER TABLE listings ADD COLUMN payment_status VARCHAR(20) DEFAULT 'free'",
-        # settings/payments tables fallback
-        "CREATE TABLE IF NOT EXISTS settings (key VARCHAR(100) PRIMARY KEY, value TEXT)",
-        """CREATE TABLE IF NOT EXISTS payments (
-            id SERIAL PRIMARY KEY,
-            listing_id INTEGER NOT NULL,
-            payme_transaction_id VARCHAR(100),
-            amount BIGINT NOT NULL,
-            state INTEGER DEFAULT 1,
-            create_time BIGINT DEFAULT 0,
-            perform_time BIGINT DEFAULT 0,
-            cancel_time BIGINT DEFAULT 0,
-            reason INTEGER
-        )""",
-    ]:
-        try:
-            conn.execute(text(col_sql))
-        except Exception:
-            pass
-    # Default settings
-    defaults = [
-        ("moderation_enabled", "false"),
-        ("listing_ttl_days",   "0"),
-        ("paid_mode",          "false"),
-        ("payme_kassa_id",     ""),
-        ("payme_secret_key",   ""),
-        ("listing_price_uzs",  "0"),
-    ]
-    for key, val in defaults:
-        try:
-            conn.execute(text(
-                "INSERT INTO settings (key, value) VALUES (:k, :v) "
-                "ON CONFLICT (key) DO NOTHING"
-            ), {"k": key, "v": val})
-        except Exception:
-            pass
+        "ALTER TABLE listings ADD COLUMN payment_status VARCHAR(20)",
+    ]),
+]:
+    _run_migration(_col_sql)
+
+# Default settings — each in its own transaction
+_defaults = [
+    ("moderation_enabled", "false"),
+    ("listing_ttl_days",   "0"),
+    ("paid_mode",          "false"),
+    ("payme_kassa_id",     ""),
+    ("payme_secret_key",   ""),
+    ("listing_price_uzs",  "0"),
+]
+for _key, _val in _defaults:
+    _run_migration(
+        f"INSERT INTO settings (key, value) VALUES ('{_key}', '{_val}') "
+        "ON CONFLICT (key) DO NOTHING"
+    )
 
 app = FastAPI(title="Домо API")
 
