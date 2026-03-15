@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from pydantic import ConfigDict
@@ -155,6 +156,10 @@ async def shutdown():
 @app.get("/")
 async def root():
     return {"status": "ok", "app": "Домо"}
+
+@app.get("/admin")
+async def admin_panel():
+    return FileResponse("static/admin.html")
 
 
 @app.get("/listings")
