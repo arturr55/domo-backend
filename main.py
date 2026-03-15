@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 from pydantic import ConfigDict
@@ -11,6 +11,7 @@ from sqlalchemy import select, func, or_, text
 import os
 import json
 import asyncio
+import base64
 from datetime import datetime, timedelta
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./domo.db")
@@ -57,12 +58,26 @@ listings_table = sqlalchemy.Table(
     sqlalchemy.Column("created_at",       sqlalchemy.DateTime, default=datetime.utcnow),
     sqlalchemy.Column("metro_station",    sqlalchemy.String(100)),
     sqlalchemy.Column("metro_minutes",    sqlalchemy.Integer),
+    sqlalchemy.Column("payment_status",   sqlalchemy.String(20), default="free"),
 )
 
 settings_table = sqlalchemy.Table(
     "settings", metadata,
     sqlalchemy.Column("key",   sqlalchemy.String(100), primary_key=True),
     sqlalchemy.Column("value", sqlalchemy.Text),
+)
+
+payments_table = sqlalchemy.Table(
+    "payments", metadata,
+    sqlalchemy.Column("id",                   sqlalchemy.Integer, primary_key=True, autoincrement=True),
+    sqlalchemy.Column("listing_id",           sqlalchemy.Integer, nullable=False),
+    sqlalchemy.Column("payme_transaction_id", sqlalchemy.String(100)),
+    sqlalchemy.Column("amount",               sqlalchemy.BigInteger, nullable=False),
+    sqlalchemy.Column("state",                sqlalchemy.Integer, default=1),
+    sqlalchemy.Column("create_time",          sqlalchemy.BigInteger, default=0),
+    sqlalchemy.Column("perform_time",         sqlalchemy.BigInteger, default=0),
+    sqlalchemy.Column("cancel_time",          sqlalchemy.BigInteger, default=0),
+    sqlalchemy.Column("reason",               sqlalchemy.Integer),
 )
 
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
@@ -73,15 +88,35 @@ with engine.begin() as conn:
     for col_sql in [
         "ALTER TABLE listings ADD COLUMN metro_station VARCHAR(100)",
         "ALTER TABLE listings ADD COLUMN metro_minutes INTEGER",
-        # settings table fallback (если create_all не сработал)
+        "ALTER TABLE listings ADD COLUMN payment_status VARCHAR(20) DEFAULT 'free'",
+        # settings/payments tables fallback
         "CREATE TABLE IF NOT EXISTS settings (key VARCHAR(100) PRIMARY KEY, value TEXT)",
+        """CREATE TABLE IF NOT EXISTS payments (
+            id SERIAL PRIMARY KEY,
+            listing_id INTEGER NOT NULL,
+            payme_transaction_id VARCHAR(100),
+            amount BIGINT NOT NULL,
+            state INTEGER DEFAULT 1,
+            create_time BIGINT DEFAULT 0,
+            perform_time BIGINT DEFAULT 0,
+            cancel_time BIGINT DEFAULT 0,
+            reason INTEGER
+        )""",
     ]:
         try:
             conn.execute(text(col_sql))
         except Exception:
             pass
     # Default settings
-    for key, val in [("moderation_enabled", "false"), ("listing_ttl_days", "0")]:
+    defaults = [
+        ("moderation_enabled", "false"),
+        ("listing_ttl_days",   "0"),
+        ("paid_mode",          "false"),
+        ("payme_kassa_id",     ""),
+        ("payme_secret_key",   ""),
+        ("listing_price_uzs",  "0"),
+    ]
+    for key, val in defaults:
         try:
             conn.execute(text(
                 "INSERT INTO settings (key, value) VALUES (:k, :v) "
@@ -161,6 +196,10 @@ class ListingUpdate(BaseModel):
 class AdminSettings(BaseModel):
     moderation_enabled: bool
     listing_ttl_days: int
+    paid_mode: bool = False
+    payme_kassa_id: str = ""
+    payme_secret_key: str = ""
+    listing_price_uzs: int = 0
 
 class BatchRequest(BaseModel):
     ids: List[int]
@@ -207,6 +246,38 @@ async def set_setting(key: str, value: str):
             await database.execute(settings_table.insert().values(key=key, value=value))
     except Exception:
         pass
+
+# ── Payme helpers ───────────────────────────────────────────────────────────────
+
+async def verify_payme_auth(request: Request) -> bool:
+    auth = request.headers.get("Authorization", "")
+    if not auth.startswith("Basic "):
+        return False
+    try:
+        decoded = base64.b64decode(auth[6:]).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except Exception:
+        return False
+    if username != "Paycom":
+        return False
+    secret = await get_setting("payme_secret_key")
+    return bool(secret) and password == secret
+
+async def make_payme_url(listing_id: int, amount_tiyn: int) -> str:
+    kassa_id = await get_setting("payme_kassa_id")
+    params = f"m={kassa_id};ac.listing_id={listing_id};a={amount_tiyn}"
+    encoded = base64.b64encode(params.encode("utf-8")).decode("utf-8")
+    return f"https://checkout.paycom.uz/{encoded}"
+
+def payme_ok(req_id, result: dict):
+    return JSONResponse({"id": req_id, "result": result})
+
+def payme_err(req_id, code: int, message: str, data: str = None):
+    err = {"code": code, "message": {"ru": message, "uz": message, "en": message}}
+    if data:
+        err["data"] = data
+    return JSONResponse({"id": req_id, "error": err})
+
 
 async def cleanup_old_listings():
     while True:
@@ -342,8 +413,13 @@ async def create_listing(data: ListingCreate):
     if not data.city.strip():
         raise HTTPException(status_code=400, detail="Город обязателен")
 
-    moderation = await get_setting("moderation_enabled")
-    auto_approve = moderation != "true"
+    moderation   = await get_setting("moderation_enabled")
+    paid_mode    = await get_setting("paid_mode")
+    price_uzs    = await get_setting("listing_price_uzs")
+
+    is_paid_mode = paid_mode == "true"
+    # In paid mode listing is hidden until payment confirmed; otherwise follow moderation setting
+    auto_approve = not is_paid_mode and (moderation != "true")
 
     listing_id = await database.execute(listings_table.insert().values(
         title=data.title.strip(),
@@ -377,10 +453,24 @@ async def create_listing(data: ListingCreate):
         is_verified=False,
         views=0,
         approved=auto_approve,
+        payment_status="pending" if is_paid_mode else "free",
         created_at=datetime.utcnow(),
     ))
+
+    if is_paid_mode:
+        price_int  = int(price_uzs) if price_uzs and price_uzs.isdigit() else 0
+        amount_tiyn = price_int * 100  # 1 UZS = 100 tiyin
+        payment_url = await make_payme_url(listing_id, amount_tiyn)
+        return {
+            "id":            listing_id,
+            "needs_payment": True,
+            "payment_url":   payment_url,
+            "amount_uzs":    price_int,
+            "message":       "Объявление будет опубликовано после оплаты",
+        }
+
     msg = "Объявление опубликовано" if auto_approve else "Объявление отправлено на модерацию"
-    return {"id": listing_id, "message": msg, "approved": auto_approve}
+    return {"id": listing_id, "message": msg, "approved": auto_approve, "needs_payment": False}
 
 
 @app.post("/listings/{listing_id}/view")
@@ -411,11 +501,219 @@ async def get_listings_batch(data: BatchRequest):
 
 @app.get("/app-settings")
 async def app_settings():
-    moderation = await get_setting("moderation_enabled")
+    moderation  = await get_setting("moderation_enabled")
+    paid_mode   = await get_setting("paid_mode")
+    price_uzs   = await get_setting("listing_price_uzs")
     return {
         "moderation_enabled": moderation == "true",
-        "max_photos": 10,
+        "paid_mode":          paid_mode == "true",
+        "listing_price_uzs":  int(price_uzs) if price_uzs and price_uzs.isdigit() else 0,
+        "max_photos":         10,
     }
+
+
+@app.get("/listings/{listing_id}/payment-status")
+async def get_payment_status(listing_id: int):
+    row = await database.fetch_one(
+        listings_table.select().where(listings_table.c.id == listing_id)
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Не найдено")
+    return {
+        "listing_id":     listing_id,
+        "payment_status": row["payment_status"] or "free",
+        "approved":       bool(row["approved"]),
+    }
+
+
+# ── Payme merchant webhook ───────────────────────────────────────────────────────
+
+@app.post("/payme/webhook")
+async def payme_webhook(request: Request):
+    if not await verify_payme_auth(request):
+        body = await request.json()
+        return payme_err(body.get("id"), -32504, "Ошибка авторизации")
+
+    body    = await request.json()
+    method  = body.get("method", "")
+    params  = body.get("params", {})
+    req_id  = body.get("id")
+
+    if method == "CheckPerformTransaction":
+        return await _payme_check_perform(req_id, params)
+    elif method == "CreateTransaction":
+        return await _payme_create(req_id, params)
+    elif method == "PerformTransaction":
+        return await _payme_perform(req_id, params)
+    elif method == "CancelTransaction":
+        return await _payme_cancel(req_id, params)
+    elif method == "CheckTransaction":
+        return await _payme_check_transaction(req_id, params)
+    elif method == "GetStatement":
+        return await _payme_statement(req_id, params)
+    else:
+        return payme_err(req_id, -32601, "Метод не найден")
+
+
+async def _payme_check_perform(req_id, params):
+    listing_id = params.get("account", {}).get("listing_id")
+    amount     = params.get("amount", 0)
+    if not listing_id:
+        return payme_err(req_id, -31050, "Объявление не найдено", "listing_id")
+    row = await database.fetch_one(
+        listings_table.select().where(listings_table.c.id == int(listing_id))
+    )
+    if not row:
+        return payme_err(req_id, -31050, "Объявление не найдено", str(listing_id))
+    price_uzs  = await get_setting("listing_price_uzs")
+    price_tiyn = int(price_uzs) * 100 if price_uzs and price_uzs.isdigit() else 0
+    if price_tiyn > 0 and amount != price_tiyn:
+        return payme_err(req_id, -31001, "Неверная сумма", "amount")
+    return payme_ok(req_id, {"allow": True})
+
+
+async def _payme_create(req_id, params):
+    txn_id     = params.get("id")
+    listing_id = params.get("account", {}).get("listing_id")
+    amount     = params.get("amount", 0)
+    t_time     = params.get("time", 0)
+    if not listing_id:
+        return payme_err(req_id, -31050, "Объявление не найдено", "listing_id")
+    # Check if transaction already exists (idempotent)
+    existing = await database.fetch_one(
+        payments_table.select().where(payments_table.c.payme_transaction_id == txn_id)
+    )
+    if existing:
+        if existing["state"] not in (1,):
+            return payme_err(req_id, -31008, "Транзакция уже завершена или отменена")
+        return payme_ok(req_id, {
+            "create_time": existing["create_time"],
+            "transaction": str(existing["id"]),
+            "state":       existing["state"],
+        })
+    # Create new transaction
+    int_id = await database.execute(payments_table.insert().values(
+        listing_id=int(listing_id),
+        payme_transaction_id=txn_id,
+        amount=amount,
+        state=1,
+        create_time=t_time,
+        perform_time=0,
+        cancel_time=0,
+    ))
+    return payme_ok(req_id, {
+        "create_time": t_time,
+        "transaction": str(int_id),
+        "state":       1,
+    })
+
+
+async def _payme_perform(req_id, params):
+    txn_id = params.get("id")
+    row = await database.fetch_one(
+        payments_table.select().where(payments_table.c.payme_transaction_id == txn_id)
+    )
+    if not row:
+        return payme_err(req_id, -31003, "Транзакция не найдена")
+    if row["state"] == 2:
+        return payme_ok(req_id, {
+            "transaction":   str(row["id"]),
+            "perform_time":  row["perform_time"],
+            "state":         2,
+        })
+    if row["state"] != 1:
+        return payme_err(req_id, -31008, "Невозможно выполнить транзакцию")
+    now_ms = int(datetime.utcnow().timestamp() * 1000)
+    await database.execute(
+        payments_table.update()
+        .where(payments_table.c.payme_transaction_id == txn_id)
+        .values(state=2, perform_time=now_ms)
+    )
+    # Activate listing
+    await database.execute(
+        listings_table.update()
+        .where(listings_table.c.id == row["listing_id"])
+        .values(approved=True, payment_status="paid")
+    )
+    return payme_ok(req_id, {
+        "transaction":  str(row["id"]),
+        "perform_time": now_ms,
+        "state":        2,
+    })
+
+
+async def _payme_cancel(req_id, params):
+    txn_id = params.get("id")
+    reason = params.get("reason", 0)
+    row = await database.fetch_one(
+        payments_table.select().where(payments_table.c.payme_transaction_id == txn_id)
+    )
+    if not row:
+        return payme_err(req_id, -31003, "Транзакция не найдена")
+    now_ms    = int(datetime.utcnow().timestamp() * 1000)
+    new_state = -2 if row["state"] == 2 else -1
+    await database.execute(
+        payments_table.update()
+        .where(payments_table.c.payme_transaction_id == txn_id)
+        .values(state=new_state, cancel_time=now_ms, reason=reason)
+    )
+    if new_state == -1:
+        # Only revert to pending if cancelled before perform
+        await database.execute(
+            listings_table.update()
+            .where(listings_table.c.id == row["listing_id"])
+            .values(approved=False, payment_status="pending")
+        )
+    return payme_ok(req_id, {
+        "transaction": str(row["id"]),
+        "cancel_time": now_ms,
+        "state":       new_state,
+    })
+
+
+async def _payme_check_transaction(req_id, params):
+    txn_id = params.get("id")
+    row = await database.fetch_one(
+        payments_table.select().where(payments_table.c.payme_transaction_id == txn_id)
+    )
+    if not row:
+        return payme_err(req_id, -31003, "Транзакция не найдена")
+    return payme_ok(req_id, {
+        "create_time":  row["create_time"],
+        "perform_time": row["perform_time"] or 0,
+        "cancel_time":  row["cancel_time"] or 0,
+        "transaction":  str(row["id"]),
+        "state":        row["state"],
+        "reason":       row["reason"],
+    })
+
+
+async def _payme_statement(req_id, params):
+    from_ms = params.get("from", 0)
+    to_ms   = params.get("to", 0)
+    rows = await database.fetch_all(
+        payments_table.select()
+        .where(payments_table.c.create_time >= from_ms)
+        .where(payments_table.c.create_time <= to_ms)
+    )
+    txns = []
+    for r in rows:
+        listing_row = await database.fetch_one(
+            listings_table.select().where(listings_table.c.id == r["listing_id"])
+        )
+        txns.append({
+            "id":           r["payme_transaction_id"],
+            "time":         r["create_time"],
+            "amount":       r["amount"],
+            "account":      {"listing_id": str(r["listing_id"])},
+            "create_time":  r["create_time"],
+            "perform_time": r["perform_time"] or 0,
+            "cancel_time":  r["cancel_time"] or 0,
+            "transaction":  str(r["id"]),
+            "state":        r["state"],
+            "reason":       r["reason"],
+        })
+    return payme_ok(req_id, {"transactions": txns})
 
 
 # ── Admin endpoints ──────────────────────────────────────────────────────────────
@@ -549,11 +847,19 @@ async def stats_cities(token: str):
 @app.get("/admin/settings")
 async def get_admin_settings(token: str):
     check_admin(token)
-    moderation = await get_setting("moderation_enabled")
-    ttl        = await get_setting("listing_ttl_days")
+    moderation  = await get_setting("moderation_enabled")
+    ttl         = await get_setting("listing_ttl_days")
+    paid_mode   = await get_setting("paid_mode")
+    kassa_id    = await get_setting("payme_kassa_id")
+    secret_key  = await get_setting("payme_secret_key")
+    price_uzs   = await get_setting("listing_price_uzs")
     return {
         "moderation_enabled": moderation == "true",
-        "listing_ttl_days": int(ttl) if ttl and ttl.lstrip('-').isdigit() else 0,
+        "listing_ttl_days":   int(ttl) if ttl and ttl.lstrip('-').isdigit() else 0,
+        "paid_mode":          paid_mode == "true",
+        "payme_kassa_id":     kassa_id or "",
+        "payme_secret_key":   secret_key or "",
+        "listing_price_uzs":  int(price_uzs) if price_uzs and price_uzs.isdigit() else 0,
     }
 
 
@@ -561,5 +867,9 @@ async def get_admin_settings(token: str):
 async def update_admin_settings(token: str, data: AdminSettings):
     check_admin(token)
     await set_setting("moderation_enabled", "true" if data.moderation_enabled else "false")
-    await set_setting("listing_ttl_days", str(max(0, data.listing_ttl_days)))
+    await set_setting("listing_ttl_days",   str(max(0, data.listing_ttl_days)))
+    await set_setting("paid_mode",          "true" if data.paid_mode else "false")
+    await set_setting("payme_kassa_id",     data.payme_kassa_id.strip())
+    await set_setting("payme_secret_key",   data.payme_secret_key.strip())
+    await set_setting("listing_price_uzs",  str(max(0, data.listing_price_uzs)))
     return {"message": "Настройки сохранены"}

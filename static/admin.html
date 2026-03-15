@@ -269,6 +269,56 @@ tr:hover td { background:#fafafe; }
         </div>
         <button class="save-btn" id="save-settings-btn" onclick="saveSettings()" disabled>Сохранить</button>
       </div>
+
+      <!-- Payme section -->
+      <div class="settings-card">
+        <h3>💳 Payme — платные объявления</h3>
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>Платный режим</strong>
+            <span>Объявления публикуются только после оплаты</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="paid-toggle" onchange="settingsChanged()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>Цена за объявление</strong>
+            <span>Сумма в UZS, которую платит пользователь</span>
+          </div>
+          <div class="ttl-row">
+            <input type="number" id="price-input" min="0" max="9999999" placeholder="0" oninput="settingsChanged()" style="width:110px">
+            <span style="font-size:13px;color:#888">UZS</span>
+          </div>
+        </div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+          <div class="setting-label">
+            <strong>Payme Kassa ID</strong>
+            <span>merchant.paycom.uz → Касса → ID кассы</span>
+          </div>
+          <input type="text" id="kassa-input" placeholder="6123abc..." oninput="settingsChanged()"
+                 style="width:100%;padding:9px 12px;border:1.5px solid #e0e0f0;border-radius:8px;font-size:14px;outline:none;font-family:monospace">
+        </div>
+        <div class="setting-row" style="flex-direction:column;align-items:flex-start;gap:10px">
+          <div class="setting-label">
+            <strong>Payme Secret Key</strong>
+            <span>merchant.paycom.uz → Касса → Ключи → Тестовый / Боевой ключ</span>
+          </div>
+          <input type="password" id="secret-input" placeholder="••••••••••••••••" oninput="settingsChanged()"
+                 style="width:100%;padding:9px 12px;border:1.5px solid #e0e0f0;border-radius:8px;font-size:14px;outline:none;font-family:monospace">
+        </div>
+        <div style="margin-top:16px;padding:12px 16px;background:#f8f8fc;border-radius:10px;font-size:12px;color:#888;line-height:1.6">
+          <strong style="color:#555">Как подключить:</strong><br>
+          1. Зарегистрируйтесь на <a href="https://merchant.paycom.uz" target="_blank" style="color:#7b68ee">merchant.paycom.uz</a><br>
+          2. Создайте кассу, укажите URL вебхука: <code style="background:#eee;padding:1px 5px;border-radius:4px">https://domo-backend-production.up.railway.app/payme/webhook</code><br>
+          3. В настройках кассы укажите поле аккаунта: <code style="background:#eee;padding:1px 5px;border-radius:4px">listing_id</code><br>
+          4. Скопируйте ID кассы и ключ сюда<br>
+          5. Включите «Платный режим» и сохраните
+        </div>
+        <button class="save-btn" id="save-payme-btn" onclick="saveSettings()" disabled>Сохранить</button>
+      </div>
     </div>
 
   </div>
@@ -576,21 +626,31 @@ async function loadCityStats() {
 // ── Settings ──────────────────────────────────────────────────────────────────
 async function loadSettings() {
   const d = await fetch(`${API}/admin/settings?token=${enc(TOKEN)}`).then(r => r.json());
-  document.getElementById('mod-toggle').checked = d.moderation_enabled;
-  document.getElementById('ttl-input').value    = d.listing_ttl_days;
+  document.getElementById('mod-toggle').checked  = d.moderation_enabled;
+  document.getElementById('ttl-input').value     = d.listing_ttl_days;
+  document.getElementById('paid-toggle').checked = d.paid_mode;
+  document.getElementById('price-input').value   = d.listing_price_uzs || 0;
+  document.getElementById('kassa-input').value   = d.payme_kassa_id || '';
+  document.getElementById('secret-input').value  = d.payme_secret_key || '';
   settingsDirty = false;
   document.getElementById('save-settings-btn').disabled = true;
+  document.getElementById('save-payme-btn').disabled    = true;
 }
 
 function settingsChanged() {
   settingsDirty = true;
   document.getElementById('save-settings-btn').disabled = false;
+  document.getElementById('save-payme-btn').disabled    = false;
 }
 
 async function saveSettings() {
   const payload = {
     moderation_enabled: document.getElementById('mod-toggle').checked,
     listing_ttl_days:   parseInt(document.getElementById('ttl-input').value) || 0,
+    paid_mode:          document.getElementById('paid-toggle').checked,
+    listing_price_uzs:  parseInt(document.getElementById('price-input').value) || 0,
+    payme_kassa_id:     document.getElementById('kassa-input').value.trim(),
+    payme_secret_key:   document.getElementById('secret-input').value.trim(),
   };
   const r = await fetch(`${API}/admin/settings?token=${enc(TOKEN)}`, {
     method: 'PATCH',
@@ -601,6 +661,7 @@ async function saveSettings() {
     toast('Настройки сохранены ✓');
     settingsDirty = false;
     document.getElementById('save-settings-btn').disabled = true;
+    document.getElementById('save-payme-btn').disabled    = true;
   }
 }
 
