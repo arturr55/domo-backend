@@ -5,173 +5,160 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Домо — Админ</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1a1a2e; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f7; color: #1a1a2e; }
 
-  /* Login */
-  #login-screen {
-    display: flex; align-items: center; justify-content: center;
-    min-height: 100vh; background: linear-gradient(135deg, #191629 0%, #2d2a4a 100%);
-  }
-  .login-box {
-    background: white; border-radius: 20px; padding: 40px;
-    width: 360px; box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-  }
-  .login-logo { text-align: center; margin-bottom: 28px; }
-  .login-logo svg { width: 56px; height: 56px; }
-  .login-logo h1 { font-size: 24px; font-weight: 800; color: #1a1a2e; margin-top: 12px; }
-  .login-logo p { color: #888; font-size: 13px; margin-top: 4px; }
-  .login-box input {
-    width: 100%; padding: 12px 16px; border: 1.5px solid #e0e0f0;
-    border-radius: 10px; font-size: 15px; outline: none; transition: border-color .2s;
-  }
-  .login-box input:focus { border-color: #7b68ee; }
-  .login-box button {
-    width: 100%; margin-top: 14px; padding: 13px;
-    background: #7b68ee; color: white; border: none; border-radius: 10px;
-    font-size: 15px; font-weight: 700; cursor: pointer; transition: background .2s;
-  }
-  .login-box button:hover { background: #6a55e0; }
-  .login-error { color: #e74c3c; font-size: 13px; margin-top: 8px; text-align: center; }
+/* ── Login ── */
+#login-screen { display:flex; align-items:center; justify-content:center; min-height:100vh; background:linear-gradient(135deg,#191629,#2d2a4a); }
+.login-box { background:white; border-radius:20px; padding:40px; width:360px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.login-logo { text-align:center; margin-bottom:28px; }
+.login-logo h1 { font-size:24px; font-weight:800; color:#1a1a2e; margin-top:12px; }
+.login-logo p  { color:#888; font-size:13px; margin-top:4px; }
+.login-box input { width:100%; padding:12px 16px; border:1.5px solid #e0e0f0; border-radius:10px; font-size:15px; outline:none; transition:border-color .2s; }
+.login-box input:focus { border-color:#7b68ee; }
+.login-box button { width:100%; margin-top:14px; padding:13px; background:#7b68ee; color:white; border:none; border-radius:10px; font-size:15px; font-weight:700; cursor:pointer; }
+.login-box button:hover { background:#6a55e0; }
+.login-error { color:#e74c3c; font-size:13px; margin-top:8px; text-align:center; }
 
-  /* App */
-  #app-screen { display: none; }
+/* ── Layout ── */
+#app-screen { display:none; }
+.sidebar { position:fixed; left:0; top:0; bottom:0; width:220px; background:#191629; color:white; display:flex; flex-direction:column; }
+.sidebar-logo { padding:24px 20px; border-bottom:1px solid rgba(255,255,255,.08); }
+.sidebar-logo h2 { font-size:20px; font-weight:800; color:#7b68ee; }
+.sidebar-logo p  { font-size:12px; color:rgba(255,255,255,.4); margin-top:2px; }
+.sidebar nav { padding:12px 0; flex:1; }
+.nav-item { display:flex; align-items:center; gap:10px; padding:11px 20px; cursor:pointer; color:rgba(255,255,255,.6); font-size:14px; font-weight:500; transition:all .15s; border-left:3px solid transparent; }
+.nav-item:hover { color:white; background:rgba(255,255,255,.05); }
+.nav-item.active { color:white; background:rgba(123,104,238,.15); border-left-color:#7b68ee; }
+.nav-item svg { width:18px; height:18px; flex-shrink:0; }
+.sidebar-bottom { padding:16px 20px; border-top:1px solid rgba(255,255,255,.08); }
+.logout-btn { display:flex; align-items:center; gap:8px; color:rgba(255,255,255,.5); cursor:pointer; font-size:13px; }
+.logout-btn:hover { color:white; }
+.main { margin-left:220px; padding:28px; min-height:100vh; }
 
-  /* Sidebar */
-  .sidebar {
-    position: fixed; left: 0; top: 0; bottom: 0; width: 220px;
-    background: #191629; color: white; padding: 24px 0; z-index: 100;
-  }
-  .sidebar-logo { padding: 0 20px 24px; border-bottom: 1px solid rgba(255,255,255,.08); }
-  .sidebar-logo h2 { font-size: 20px; font-weight: 800; color: #7b68ee; }
-  .sidebar-logo p { font-size: 12px; color: rgba(255,255,255,.4); margin-top: 2px; }
-  .sidebar nav { padding: 16px 0; }
-  .nav-item {
-    display: flex; align-items: center; gap: 10px;
-    padding: 11px 20px; cursor: pointer; color: rgba(255,255,255,.6);
-    font-size: 14px; font-weight: 500; transition: all .15s; border-left: 3px solid transparent;
-  }
-  .nav-item:hover { color: white; background: rgba(255,255,255,.05); }
-  .nav-item.active { color: white; background: rgba(123,104,238,.15); border-left-color: #7b68ee; }
-  .nav-item svg { width: 18px; height: 18px; flex-shrink: 0; }
+/* ── Stats ── */
+.stats-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; margin-bottom:28px; }
+.stat-card { background:white; border-radius:14px; padding:20px 24px; box-shadow:0 2px 8px rgba(0,0,0,.06); }
+.stat-card .label { font-size:11px; color:#888; font-weight:600; text-transform:uppercase; letter-spacing:.5px; }
+.stat-card .value { font-size:30px; font-weight:800; margin-top:6px; }
+.stat-total   .value { color:#7b68ee; }
+.stat-active  .value { color:#00b894; }
+.stat-pending .value { color:#ff6b35; }
+.stat-views   .value { color:#2aabee; }
 
-  /* Main */
-  .main { margin-left: 220px; padding: 28px; min-height: 100vh; }
+/* ── Toolbar ── */
+.toolbar { display:flex; align-items:center; gap:10px; margin-bottom:18px; flex-wrap:wrap; }
+.toolbar h2 { font-size:20px; font-weight:700; flex:1; min-width:120px; }
+.filter-btn { padding:8px 14px; border-radius:8px; border:1.5px solid #e0e0f0; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#555; transition:all .15s; white-space:nowrap; }
+.filter-btn:hover, .filter-btn.active { border-color:#7b68ee; color:#7b68ee; background:#f0eeff; }
+.search-input { padding:8px 14px; border:1.5px solid #e0e0f0; border-radius:8px; font-size:13px; outline:none; width:180px; }
+.search-input:focus { border-color:#7b68ee; }
+.reload-btn { padding:8px 14px; background:#7b68ee; color:white; border:none; border-radius:8px; cursor:pointer; font-size:13px; font-weight:600; }
+.reload-btn:hover { background:#6a55e0; }
 
-  /* Stats */
-  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-bottom: 28px; }
-  .stat-card {
-    background: white; border-radius: 14px; padding: 20px 24px;
-    box-shadow: 0 2px 8px rgba(0,0,0,.06);
-  }
-  .stat-card .label { font-size: 12px; color: #888; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
-  .stat-card .value { font-size: 32px; font-weight: 800; margin-top: 6px; }
-  .stat-card.total .value { color: #7b68ee; }
-  .stat-card.active .value { color: #00b894; }
-  .stat-card.pending .value { color: #ff6b35; }
+/* ── Table ── */
+.table-wrap { background:white; border-radius:14px; box-shadow:0 2px 8px rgba(0,0,0,.06); overflow:hidden; }
+table { width:100%; border-collapse:collapse; }
+thead tr { background:#f8f8fc; }
+th { padding:11px 12px; text-align:left; font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.5px; cursor:pointer; user-select:none; white-space:nowrap; }
+th:hover { color:#7b68ee; }
+td { padding:11px 12px; font-size:13px; border-top:1px solid #f0f0f8; vertical-align:middle; }
+tr:hover td { background:#fafafe; }
 
-  /* Toolbar */
-  .toolbar {
-    display: flex; align-items: center; gap: 12px; margin-bottom: 18px; flex-wrap: wrap;
-  }
-  .toolbar h2 { font-size: 20px; font-weight: 700; flex: 1; }
-  .filter-btn {
-    padding: 8px 16px; border-radius: 8px; border: 1.5px solid #e0e0f0;
-    background: white; cursor: pointer; font-size: 13px; font-weight: 600;
-    color: #555; transition: all .15s;
-  }
-  .filter-btn:hover, .filter-btn.active { border-color: #7b68ee; color: #7b68ee; background: #f0eeff; }
-  .search-input {
-    padding: 8px 14px; border: 1.5px solid #e0e0f0; border-radius: 8px;
-    font-size: 13px; outline: none; width: 200px; transition: border-color .2s;
-  }
-  .search-input:focus { border-color: #7b68ee; }
-  .reload-btn {
-    padding: 8px 14px; background: #7b68ee; color: white; border: none;
-    border-radius: 8px; cursor: pointer; font-size: 13px; font-weight: 600;
-  }
-  .reload-btn:hover { background: #6a55e0; }
+.badge { display:inline-block; padding:3px 8px; border-radius:6px; font-size:11px; font-weight:700; }
+.b-rent     { background:#ede9ff; color:#7b68ee; }
+.b-sale     { background:#e8f8f4; color:#00b894; }
+.b-approved { background:#e8f8f4; color:#00b894; }
+.b-rejected { background:#ffeee9; color:#ff6b35; }
+.b-moderation { background:#fff8e1; color:#f39c12; }
 
-  /* Table */
-  .table-wrap { background: white; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,.06); overflow: hidden; }
-  table { width: 100%; border-collapse: collapse; }
-  thead tr { background: #f8f8fc; }
-  th { padding: 12px 14px; text-align: left; font-size: 11px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: .5px; }
-  td { padding: 12px 14px; font-size: 13px; border-top: 1px solid #f0f0f8; vertical-align: middle; }
-  tr:hover td { background: #fafafe; }
+.actions { display:flex; gap:5px; flex-wrap:nowrap; }
+.btn { padding:5px 9px; border-radius:6px; border:none; cursor:pointer; font-size:11px; font-weight:700; transition:opacity .15s; white-space:nowrap; }
+.btn:hover { opacity:.8; }
+.btn-approve { background:#00b894; color:white; }
+.btn-reject  { background:#ff6b35; color:white; }
+.btn-hot     { background:#ffeee9; color:#ff6b35; border:1px solid #ffd4c4; }
+.btn-hot.on  { background:#ff6b35; color:white; }
+.btn-verify  { background:#ede9ff; color:#7b68ee; border:1px solid #d4caff; }
+.btn-verify.on { background:#7b68ee; color:white; }
+.btn-delete  { background:#ffeef0; color:#e74c3c; border:1px solid #ffd4d8; }
+.btn-edit    { background:#f0f0f8; color:#555; border:1px solid #e0e0f0; }
+.btn-view    { background:#f0f0f8; color:#555; }
 
-  .badge {
-    display: inline-block; padding: 3px 8px; border-radius: 6px;
-    font-size: 11px; font-weight: 700;
-  }
-  .badge-rent { background: #ede9ff; color: #7b68ee; }
-  .badge-sale { background: #e8f8f4; color: #00b894; }
-  .badge-approved { background: #e8f8f4; color: #00b894; }
-  .badge-rejected { background: #ffeee9; color: #ff6b35; }
-  .badge-hot { background: #fff3ee; color: #ff6b35; }
-  .badge-verified { background: #ede9ff; color: #7b68ee; }
+.photo-thumb { width:48px; height:38px; object-fit:cover; border-radius:6px; }
+.no-photo { width:48px; height:38px; border-radius:6px; background:#f0f0f8; display:flex; align-items:center; justify-content:center; color:#ccc; font-size:16px; }
+.title-cell strong { display:block; font-weight:600; max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.title-cell span { color:#888; font-size:11px; }
 
-  .actions { display: flex; gap: 6px; flex-wrap: wrap; }
-  .btn {
-    padding: 5px 10px; border-radius: 6px; border: none; cursor: pointer;
-    font-size: 11px; font-weight: 700; transition: opacity .15s;
-  }
-  .btn:hover { opacity: .8; }
-  .btn-approve { background: #00b894; color: white; }
-  .btn-reject  { background: #ff6b35; color: white; }
-  .btn-hot     { background: #ffeee9; color: #ff6b35; border: 1px solid #ffd4c4; }
-  .btn-hot.on  { background: #ff6b35; color: white; }
-  .btn-verify  { background: #ede9ff; color: #7b68ee; border: 1px solid #d4caff; }
-  .btn-verify.on { background: #7b68ee; color: white; }
-  .btn-delete  { background: #ffeef0; color: #e74c3c; border: 1px solid #ffd4d8; }
+/* ── Pagination ── */
+.pagination { display:flex; align-items:center; justify-content:flex-end; gap:6px; padding:14px 16px; border-top:1px solid #f0f0f8; }
+.pg-btn { padding:6px 12px; border-radius:7px; border:1.5px solid #e0e0f0; background:white; cursor:pointer; font-size:13px; font-weight:600; color:#555; }
+.pg-btn:hover { border-color:#7b68ee; color:#7b68ee; }
+.pg-btn.active { background:#7b68ee; color:white; border-color:#7b68ee; }
+.pg-btn:disabled { opacity:.4; cursor:not-allowed; }
+.pg-info { font-size:13px; color:#888; margin-right:8px; }
 
-  .photo-thumb {
-    width: 52px; height: 40px; object-fit: cover;
-    border-radius: 6px; background: #eee;
-  }
-  .no-photo {
-    width: 52px; height: 40px; border-radius: 6px;
-    background: #f0f0f8; display: flex; align-items: center; justify-content: center;
-    color: #ccc; font-size: 18px;
-  }
+/* ── City stats table ── */
+.city-table { width:100%; border-collapse:collapse; }
+.city-table th { padding:10px 14px; text-align:left; font-size:11px; font-weight:700; color:#888; text-transform:uppercase; background:#f8f8fc; }
+.city-table td { padding:10px 14px; font-size:14px; border-top:1px solid #f0f0f8; }
+.bar-wrap { background:#f0f0f8; border-radius:4px; height:8px; flex:1; min-width:60px; }
+.bar-fill { height:8px; border-radius:4px; background:#7b68ee; transition:width .4s; }
 
-  .title-cell { max-width: 200px; }
-  .title-cell strong { display: block; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .title-cell span { color: #888; font-size: 11px; }
+/* ── Settings ── */
+.settings-card { background:white; border-radius:14px; padding:28px; box-shadow:0 2px 8px rgba(0,0,0,.06); max-width:520px; margin-bottom:20px; }
+.settings-card h3 { font-size:16px; font-weight:700; margin-bottom:20px; }
+.setting-row { display:flex; align-items:center; justify-content:space-between; padding:14px 0; border-bottom:1px solid #f0f0f8; }
+.setting-row:last-child { border-bottom:none; }
+.setting-label strong { display:block; font-size:14px; font-weight:600; }
+.setting-label span { font-size:12px; color:#888; margin-top:2px; display:block; }
+/* Toggle */
+.toggle { position:relative; width:46px; height:26px; flex-shrink:0; }
+.toggle input { opacity:0; width:0; height:0; }
+.toggle-slider { position:absolute; inset:0; background:#ddd; border-radius:26px; cursor:pointer; transition:.3s; }
+.toggle-slider:before { content:''; position:absolute; width:20px; height:20px; left:3px; bottom:3px; background:white; border-radius:50%; transition:.3s; box-shadow:0 1px 4px rgba(0,0,0,.2); }
+.toggle input:checked + .toggle-slider { background:#7b68ee; }
+.toggle input:checked + .toggle-slider:before { transform:translateX(20px); }
+/* TTL input */
+.ttl-row { display:flex; align-items:center; gap:10px; }
+.ttl-row input { width:80px; padding:8px 12px; border:1.5px solid #e0e0f0; border-radius:8px; font-size:14px; outline:none; text-align:center; }
+.ttl-row input:focus { border-color:#7b68ee; }
+.save-btn { padding:9px 20px; background:#7b68ee; color:white; border:none; border-radius:9px; font-size:14px; font-weight:700; cursor:pointer; margin-top:20px; }
+.save-btn:hover { background:#6a55e0; }
 
-  .empty { padding: 48px; text-align: center; color: #aaa; font-size: 15px; }
-  .loading { padding: 48px; text-align: center; color: #aaa; }
+/* ── Modal ── */
+.modal-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:1000; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; }
+.modal { background:white; border-radius:16px; padding:28px; max-width:600px; width:95%; max-height:88vh; overflow-y:auto; box-shadow:0 20px 60px rgba(0,0,0,.3); }
+.modal-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:20px; }
+.modal-header h3 { font-size:18px; font-weight:700; }
+.modal-close { background:#f0f0f8; border:none; border-radius:8px; padding:7px 14px; cursor:pointer; font-size:13px; font-weight:600; }
+/* Detail rows */
+.detail-row { display:flex; gap:8px; margin-bottom:8px; font-size:13px; }
+.detail-label { color:#888; min-width:110px; flex-shrink:0; font-size:12px; }
+.detail-val { font-weight:500; }
+.photos-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+.photos-row img { width:100px; height:78px; object-fit:cover; border-radius:8px; }
+/* Edit form */
+.edit-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.edit-grid .full { grid-column:1/-1; }
+.form-group label { display:block; font-size:11px; font-weight:700; color:#888; text-transform:uppercase; letter-spacing:.4px; margin-bottom:5px; }
+.form-group input, .form-group select, .form-group textarea {
+  width:100%; padding:9px 12px; border:1.5px solid #e0e0f0; border-radius:8px;
+  font-size:13px; outline:none; background:white; font-family:inherit;
+}
+.form-group input:focus, .form-group select:focus, .form-group textarea:focus { border-color:#7b68ee; }
+.form-group textarea { resize:vertical; min-height:80px; }
+.modal-actions { display:flex; gap:10px; margin-top:20px; }
+.modal-actions .btn-save { padding:10px 24px; background:#7b68ee; color:white; border:none; border-radius:9px; font-size:14px; font-weight:700; cursor:pointer; }
+.modal-actions .btn-cancel { padding:10px 20px; background:#f0f0f8; color:#555; border:none; border-radius:9px; font-size:14px; font-weight:600; cursor:pointer; }
 
-  /* Modal */
-  .modal-overlay {
-    display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5);
-    z-index: 1000; align-items: center; justify-content: center;
-  }
-  .modal-overlay.open { display: flex; }
-  .modal {
-    background: white; border-radius: 16px; padding: 28px;
-    max-width: 560px; width: 90%; max-height: 80vh; overflow-y: auto;
-    box-shadow: 0 20px 60px rgba(0,0,0,.3);
-  }
-  .modal h3 { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
-  .modal-close {
-    float: right; background: #f0f0f8; border: none; border-radius: 8px;
-    padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600;
-  }
-  .detail-row { display: flex; gap: 8px; margin-bottom: 8px; font-size: 13px; }
-  .detail-label { color: #888; min-width: 110px; flex-shrink: 0; }
-  .detail-val { font-weight: 500; }
-  .photos-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
-  .photos-row img { width: 100px; height: 80px; object-fit: cover; border-radius: 8px; }
+.loading { padding:48px; text-align:center; color:#aaa; }
+.empty   { padding:48px; text-align:center; color:#aaa; font-size:15px; }
 
-  /* Toast */
-  #toast {
-    position: fixed; bottom: 24px; right: 24px; background: #1a1a2e;
-    color: white; padding: 12px 20px; border-radius: 10px; font-size: 13px;
-    font-weight: 600; opacity: 0; transition: opacity .3s; z-index: 9999;
-    pointer-events: none;
-  }
-  #toast.show { opacity: 1; }
+/* Toast */
+#toast { position:fixed; bottom:24px; right:24px; background:#1a1a2e; color:white; padding:12px 20px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; transition:opacity .3s; z-index:9999; pointer-events:none; }
+#toast.show { opacity:1; }
 </style>
 </head>
 <body>
@@ -180,14 +167,15 @@
 <div id="login-screen">
   <div class="login-box">
     <div class="login-logo">
-      <svg viewBox="0 0 56 56" fill="none">
-        <rect width="56" height="56" rx="14" fill="#7b68ee"/>
-        <path d="M28 14 L10 28 L18 28 L18 42 L38 42 L38 28 L46 28 Z" fill="white"/>
+      <svg width="52" height="52" viewBox="0 0 52 52" fill="none">
+        <rect width="52" height="52" rx="14" fill="#7b68ee"/>
+        <path d="M26 12 L8 26 L17 26 L17 40 L35 40 L35 26 L44 26 Z" fill="white"/>
       </svg>
       <h1>Домо</h1>
       <p>Панель администратора</p>
     </div>
-    <input type="password" id="token-input" placeholder="Введите admin-токен" onkeydown="if(event.key==='Enter')doLogin()"/>
+    <input type="password" id="token-input" placeholder="Введите admin-токен"
+           onkeydown="if(event.key==='Enter')doLogin()"/>
     <div id="login-error" class="login-error"></div>
     <button onclick="doLogin()">Войти</button>
   </div>
@@ -196,10 +184,7 @@
 <!-- App -->
 <div id="app-screen">
   <div class="sidebar">
-    <div class="sidebar-logo">
-      <h2>Домо</h2>
-      <p>Администратор</p>
-    </div>
+    <div class="sidebar-logo"><h2>Домо</h2><p>Администратор</p></div>
     <nav>
       <div class="nav-item active" onclick="showTab('listings')" id="nav-listings">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
@@ -209,37 +194,80 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         Статистика
       </div>
-      <div class="nav-item" onclick="doLogout()" style="margin-top:auto; position:absolute; bottom:24px; width:100%;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-        Выйти
+      <div class="nav-item" onclick="showTab('settings')" id="nav-settings">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        Настройки
       </div>
     </nav>
+    <div class="sidebar-bottom">
+      <div class="logout-btn" onclick="doLogout()">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Выйти
+      </div>
+    </div>
   </div>
 
   <div class="main">
 
-    <!-- Stats tab -->
-    <div id="tab-stats" style="display:none">
-      <div class="toolbar"><h2>Статистика</h2></div>
-      <div class="stats-grid">
-        <div class="stat-card total"><div class="label">Всего объявлений</div><div class="value" id="stat-total">—</div></div>
-        <div class="stat-card active"><div class="label">Активных</div><div class="value" id="stat-approved">—</div></div>
-        <div class="stat-card pending"><div class="label">Отклонённых</div><div class="value" id="stat-pending">—</div></div>
-      </div>
-    </div>
-
-    <!-- Listings tab -->
+    <!-- Listings -->
     <div id="tab-listings">
       <div class="toolbar">
         <h2>Объявления</h2>
-        <input class="search-input" id="search-input" placeholder="Поиск..." oninput="renderTable()">
-        <button class="filter-btn active" onclick="setFilter('all')" id="f-all">Все</button>
-        <button class="filter-btn" onclick="setFilter('active')" id="f-active">Активные</button>
-        <button class="filter-btn" onclick="setFilter('rejected')" id="f-rejected">Отклонённые</button>
-        <button class="reload-btn" onclick="loadListings()">↻ Обновить</button>
+        <input class="search-input" id="search-input" placeholder="Поиск…" oninput="debounceSearch()">
+        <button class="filter-btn active" onclick="setFilter('all')"      id="f-all">Все</button>
+        <button class="filter-btn"        onclick="setFilter('active')"   id="f-active">Активные</button>
+        <button class="filter-btn"        onclick="setFilter('rejected')" id="f-rejected">Отклонённые</button>
+        <button class="reload-btn"        onclick="loadListings(1)">↻ Обновить</button>
       </div>
       <div class="table-wrap">
-        <div id="table-body"><div class="loading">Загрузка...</div></div>
+        <div id="table-body"><div class="loading">Загрузка…</div></div>
+        <div id="pagination" class="pagination" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div id="tab-stats" style="display:none">
+      <div class="toolbar"><h2>Статистика</h2></div>
+      <div class="stats-grid">
+        <div class="stat-card stat-total">  <div class="label">Всего</div>    <div class="value" id="s-total">—</div></div>
+        <div class="stat-card stat-active"> <div class="label">Активных</div> <div class="value" id="s-active">—</div></div>
+        <div class="stat-card stat-pending"><div class="label">На модерации</div><div class="value" id="s-pending">—</div></div>
+        <div class="stat-card stat-views">  <div class="label">Просмотров</div><div class="value" id="s-views">—</div></div>
+      </div>
+      <div class="table-wrap">
+        <table class="city-table">
+          <thead><tr><th>#</th><th>Город</th><th>Объявлений</th><th>Просмотров</th><th style="width:200px">Доля</th></tr></thead>
+          <tbody id="city-tbody"><tr><td colspan="5" class="loading">Загрузка…</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Settings -->
+    <div id="tab-settings" style="display:none">
+      <div class="toolbar"><h2>Настройки</h2></div>
+      <div class="settings-card">
+        <h3>Модерация и объявления</h3>
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>Предварительная модерация</strong>
+            <span>Новые объявления будут скрыты до одобрения</span>
+          </div>
+          <label class="toggle">
+            <input type="checkbox" id="mod-toggle" onchange="settingsChanged()">
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>Автоудаление объявлений</strong>
+            <span>Объявления старше указанного срока удалятся автоматически</span>
+          </div>
+          <div class="ttl-row">
+            <input type="number" id="ttl-input" min="0" max="365" placeholder="0" oninput="settingsChanged()">
+            <span style="font-size:13px;color:#888">дней (0 = никогда)</span>
+          </div>
+        </div>
+        <button class="save-btn" id="save-settings-btn" onclick="saveSettings()" disabled>Сохранить</button>
       </div>
     </div>
 
@@ -250,35 +278,31 @@
 <div class="modal-overlay" id="modal-overlay" onclick="if(event.target===this)closeModal()">
   <div class="modal" id="modal-content"></div>
 </div>
-
 <div id="toast"></div>
 
 <script>
 const API = 'https://domo-backend-production.up.railway.app';
 let TOKEN = '';
-let allListings = [];
 let currentFilter = 'all';
+let currentPage = 1;
+let totalPages = 1;
+let searchTimer = null;
+let settingsDirty = false;
 
+// ── Auth ──────────────────────────────────────────────────────────────────────
 function doLogin() {
   const t = document.getElementById('token-input').value.trim();
   if (!t) return;
-  TOKEN = t;
   fetch(`${API}/admin/stats?token=${encodeURIComponent(t)}`)
-    .then(r => {
-      if (r.status === 403) throw new Error('Неверный токен');
-      return r.json();
-    })
+    .then(r => { if (r.status === 403) throw new Error('Неверный токен'); return r.json(); })
     .then(() => {
+      TOKEN = t;
       document.getElementById('login-screen').style.display = 'none';
       document.getElementById('app-screen').style.display = 'block';
-      loadListings();
-      loadStats();
+      loadListings(1);
     })
-    .catch(e => {
-      document.getElementById('login-error').textContent = e.message;
-    });
+    .catch(e => { document.getElementById('login-error').textContent = e.message; });
 }
-
 function doLogout() {
   TOKEN = '';
   document.getElementById('login-screen').style.display = 'flex';
@@ -286,83 +310,72 @@ function doLogout() {
   document.getElementById('token-input').value = '';
 }
 
+// ── Navigation ────────────────────────────────────────────────────────────────
 function showTab(tab) {
-  document.getElementById('tab-listings').style.display = tab === 'listings' ? 'block' : 'none';
-  document.getElementById('tab-stats').style.display = tab === 'stats' ? 'block' : 'none';
-  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
-  document.getElementById('nav-' + tab).classList.add('active');
-  if (tab === 'stats') loadStats();
+  ['listings','stats','settings'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = t === tab ? 'block' : 'none';
+    document.getElementById('nav-'+t).classList.toggle('active', t === tab);
+  });
+  if (tab === 'stats')    { loadStats(); loadCityStats(); }
+  if (tab === 'settings') loadSettings();
 }
 
-function loadStats() {
-  fetch(`${API}/admin/stats?token=${encodeURIComponent(TOKEN)}`)
-    .then(r => r.json())
-    .then(d => {
-      document.getElementById('stat-total').textContent = d.total ?? '—';
-      document.getElementById('stat-approved').textContent = d.approved ?? '—';
-      document.getElementById('stat-pending').textContent = d.pending ?? '—';
-    });
-}
-
-function loadListings() {
-  document.getElementById('table-body').innerHTML = '<div class="loading">Загрузка...</div>';
-  fetch(`${API}/admin/listings?token=${encodeURIComponent(TOKEN)}`)
-    .then(r => r.json())
-    .then(data => {
-      allListings = data;
-      renderTable();
-    });
+// ── Listings ─────────────────────────────────────────────────────────────────
+function debounceSearch() {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => loadListings(1), 400);
 }
 
 function setFilter(f) {
   currentFilter = f;
-  ['all','active','rejected'].forEach(k => {
-    document.getElementById('f-' + k).classList.toggle('active', k === f);
-  });
-  renderTable();
+  ['all','active','rejected'].forEach(k =>
+    document.getElementById('f-'+k).classList.toggle('active', k === f)
+  );
+  loadListings(1);
 }
 
-function renderTable() {
-  const search = document.getElementById('search-input').value.toLowerCase();
-  let list = allListings;
+async function loadListings(page = 1) {
+  currentPage = page;
+  document.getElementById('table-body').innerHTML = '<div class="loading">Загрузка…</div>';
+  document.getElementById('pagination').style.display = 'none';
 
-  if (currentFilter === 'active')   list = list.filter(l => l.approved);
-  if (currentFilter === 'rejected') list = list.filter(l => !l.approved);
-  if (search) list = list.filter(l =>
-    (l.title || '').toLowerCase().includes(search) ||
-    (l.city  || '').toLowerCase().includes(search) ||
-    (l.phone || '').toLowerCase().includes(search) ||
-    (l.contact_name || '').toLowerCase().includes(search)
-  );
+  const search = document.getElementById('search-input').value.trim();
+  let url = `${API}/admin/listings?token=${enc(TOKEN)}&page=${page}&limit=25`;
+  if (currentFilter === 'active')   url += '&approved=true';
+  if (currentFilter === 'rejected') url += '&approved=false';
+  if (search) url += `&search=${enc(search)}`;
 
-  if (list.length === 0) {
+  const data = await fetch(url).then(r => r.json());
+  totalPages = Math.ceil((data.total || 0) / 25) || 1;
+  renderTable(data.items || []);
+  renderPagination(data.total || 0);
+}
+
+function renderTable(list) {
+  if (!list.length) {
     document.getElementById('table-body').innerHTML = '<div class="empty">Объявлений нет</div>';
     return;
   }
-
   const rows = list.map(l => {
-    const photo = l.photos && l.photos.length > 0
-      ? `<img class="photo-thumb" src="data:image/jpeg;base64,${l.photos[0]}" onerror="this.style.display='none'">`
+    const photo = l.photos?.length
+      ? `<img class="photo-thumb" src="data:image/jpeg;base64,${l.photos[0]}" onerror="this.parentNode.innerHTML='<div class=no-photo>🏠</div>'">`
       : `<div class="no-photo">🏠</div>`;
-    const price = l.price >= 1000000
-      ? (l.price/1000000).toFixed(1) + ' млн'
-      : l.price >= 1000 ? Math.round(l.price/1000) + ' тыс.' : l.price;
-    const date = l.created_at ? new Date(l.created_at).toLocaleDateString('ru') : '';
+    const price = fmtPrice(l.price);
+    const date  = l.created_at ? new Date(l.created_at).toLocaleDateString('ru') : '';
     const status = l.approved
-      ? '<span class="badge badge-approved">✓ Активно</span>'
-      : '<span class="badge badge-rejected">✗ Откл.</span>';
+      ? '<span class="badge b-approved">✓ Активно</span>'
+      : '<span class="badge b-rejected">✗ Откл.</span>';
     const deal = l.deal_type === 'sale'
-      ? '<span class="badge badge-sale">Продажа</span>'
-      : '<span class="badge badge-rent">Аренда</span>';
+      ? '<span class="badge b-sale">Продажа</span>'
+      : '<span class="badge b-rent">Аренда</span>';
     const hotCls = l.is_hot ? 'on' : '';
     const verCls = l.is_verified ? 'on' : '';
-
+    const appBtn = l.approved
+      ? `<button class="btn btn-reject"  onclick="act(${l.id},'reject')">Откл.</button>`
+      : `<button class="btn btn-approve" onclick="act(${l.id},'approve')">✓ Одобр.</button>`;
     return `<tr>
       <td>${photo}</td>
-      <td class="title-cell">
-        <strong>${esc(l.title)}</strong>
-        <span>${esc(l.city)}${l.district ? ', ' + esc(l.district) : ''}</span>
-      </td>
+      <td class="title-cell"><strong title="${esc(l.title)}">${esc(l.title)}</strong><span>${esc(l.city)}${l.district?', '+esc(l.district):''}</span></td>
       <td>${deal}</td>
       <td><strong>${price} ₽</strong>${l.deal_type==='rent'?'<br><span style="color:#aaa;font-size:11px">/мес</span>':''}</td>
       <td>${esc(l.contact_name||'—')}<br><span style="color:#aaa;font-size:11px">${esc(l.phone||'')}</span></td>
@@ -370,17 +383,19 @@ function renderTable() {
       <td style="color:#aaa;font-size:12px">${date}</td>
       <td>
         <div class="actions">
-          ${l.approved
-            ? `<button class="btn btn-reject" onclick="action(${l.id},'reject')">Откл.</button>`
-            : `<button class="btn btn-approve" onclick="action(${l.id},'approve')">✓ Одобрить</button>`}
-          <button class="btn btn-hot ${hotCls}" onclick="action(${l.id},'hot',${!l.is_hot})" title="Горячее">🔥</button>
-          <button class="btn btn-verify ${verCls}" onclick="action(${l.id},'verified',${!l.is_verified})" title="Проверено">✓</button>
-          <button class="btn btn-delete" onclick="deleteListing(${l.id})">✕</button>
-          <button class="btn" style="background:#f0f0f8;color:#555;" onclick="showDetail(${l.id})">👁</button>
+          ${appBtn}
+          <button class="btn btn-hot ${hotCls}"    onclick="act(${l.id},'hot',${!l.is_hot})"          title="${l.is_hot?'Снять горячее':'Горячее'}">🔥</button>
+          <button class="btn btn-verify ${verCls}" onclick="act(${l.id},'verified',${!l.is_verified})" title="${l.is_verified?'Снять проверку':'Проверено'}">✓</button>
+          <button class="btn btn-edit"   onclick="openEdit(${l.id})">✎</button>
+          <button class="btn btn-view"   onclick="openDetail(${l.id}, ${JSON.stringify(list).indexOf(JSON.stringify(l))})">👁</button>
+          <button class="btn btn-delete" onclick="del(${l.id})">✕</button>
         </div>
       </td>
     </tr>`;
   }).join('');
+
+  // store list for modal access
+  window._lastList = list;
 
   document.getElementById('table-body').innerHTML = `
     <table>
@@ -392,67 +407,218 @@ function renderTable() {
     </table>`;
 }
 
-async function action(id, type, value) {
-  let url = `${API}/admin/listings/${id}/${type}?token=${encodeURIComponent(TOKEN)}`;
+function renderPagination(total) {
+  const pg = document.getElementById('pagination');
+  if (totalPages <= 1) { pg.style.display = 'none'; return; }
+  pg.style.display = 'flex';
+  let html = `<span class="pg-info">Всего: ${total}</span>`;
+  html += `<button class="pg-btn" onclick="loadListings(${currentPage-1})" ${currentPage===1?'disabled':''}>←</button>`;
+  const start = Math.max(1, currentPage - 2);
+  const end   = Math.min(totalPages, currentPage + 2);
+  if (start > 1) html += `<button class="pg-btn" onclick="loadListings(1)">1</button>${start>2?'<span style="padding:0 4px;color:#aaa">…</span>':''}`;
+  for (let i = start; i <= end; i++)
+    html += `<button class="pg-btn ${i===currentPage?'active':''}" onclick="loadListings(${i})">${i}</button>`;
+  if (end < totalPages) html += `${end<totalPages-1?'<span style="padding:0 4px;color:#aaa">…</span>':''}<button class="pg-btn" onclick="loadListings(${totalPages})">${totalPages}</button>`;
+  html += `<button class="pg-btn" onclick="loadListings(${currentPage+1})" ${currentPage===totalPages?'disabled':''}>→</button>`;
+  pg.innerHTML = html;
+}
+
+async function act(id, type, value) {
+  let url = `${API}/admin/listings/${id}/${type}?token=${enc(TOKEN)}`;
   if (value !== undefined) url += `&value=${value}`;
   const r = await fetch(url, { method: 'PATCH' });
-  if (r.ok) {
-    toast(type === 'approve' ? 'Одобрено ✓' : type === 'reject' ? 'Отклонено' : 'Обновлено');
-    await loadListings();
-  }
+  if (r.ok) { toast(type==='approve'?'Одобрено ✓':type==='reject'?'Отклонено':'Обновлено'); loadListings(currentPage); }
 }
 
-async function deleteListing(id) {
-  if (!confirm('Удалить объявление #' + id + '?')) return;
-  const r = await fetch(`${API}/admin/listings/${id}?token=${encodeURIComponent(TOKEN)}`, { method: 'DELETE' });
-  if (r.ok) { toast('Удалено'); await loadListings(); }
+async function del(id) {
+  if (!confirm(`Удалить объявление #${id}?`)) return;
+  const r = await fetch(`${API}/admin/listings/${id}?token=${enc(TOKEN)}`, { method: 'DELETE' });
+  if (r.ok) { toast('Удалено'); loadListings(currentPage); }
 }
 
-function showDetail(id) {
-  const l = allListings.find(x => x.id === id);
+// ── Detail modal ──────────────────────────────────────────────────────────────
+function openDetail(id, idx) {
+  const l = window._lastList?.[idx] || window._lastList?.find(x => x.id === id);
   if (!l) return;
-  const photos = (l.photos || []).map(p =>
-    `<img src="data:image/jpeg;base64,${p}" onerror="this.style.display='none'">`
-  ).join('');
   const amenMap = {wifi:'Wi-Fi',parking:'Паркинг',balcony:'Балкон',elevator:'Лифт',
     security:'Охрана',gym:'Зал',pool:'Бассейн',washer:'Стиралка',
     ac:'Кондиционер',furniture:'Мебель',fridge:'Холодильник',dishwasher:'Посудомойка'};
-  const amenities = (l.amenities||[]).map(a => amenMap[a]||a).join(', ') || '—';
+  const photos = (l.photos||[]).map(p => `<img src="data:image/jpeg;base64,${p}">`).join('');
   document.getElementById('modal-content').innerHTML = `
-    <button class="modal-close" onclick="closeModal()">Закрыть</button>
-    <h3>#${l.id} — ${esc(l.title)}</h3>
+    <div class="modal-header">
+      <h3>#${l.id} — ${esc(l.title)}</h3>
+      <button class="modal-close" onclick="closeModal()">Закрыть</button>
+    </div>
     <div class="detail-row"><span class="detail-label">Город</span><span class="detail-val">${esc(l.city)}${l.district?', '+esc(l.district):''}</span></div>
     <div class="detail-row"><span class="detail-label">Адрес</span><span class="detail-val">${esc(l.address)}</span></div>
     <div class="detail-row"><span class="detail-label">Тип сделки</span><span class="detail-val">${l.deal_type==='rent'?'Аренда':'Продажа'}</span></div>
     <div class="detail-row"><span class="detail-label">Цена</span><span class="detail-val">${l.price} ₽${l.deal_type==='rent'?'/мес':''}</span></div>
     <div class="detail-row"><span class="detail-label">Площадь</span><span class="detail-val">${l.area?l.area+' м²':'—'}</span></div>
     <div class="detail-row"><span class="detail-label">Этаж</span><span class="detail-val">${l.floor?l.floor+(l.floors_total?' / '+l.floors_total:''):'—'}</span></div>
-    <div class="detail-row"><span class="detail-label">Комнат</span><span class="detail-val">${l.rooms||'—'}</span></div>
     <div class="detail-row"><span class="detail-label">Метро</span><span class="detail-val">${l.metro_station?l.metro_station+(l.metro_minutes?' — '+l.metro_minutes+' мин':''):'—'}</span></div>
-    <div class="detail-row"><span class="detail-label">Удобства</span><span class="detail-val">${amenities}</span></div>
+    <div class="detail-row"><span class="detail-label">Удобства</span><span class="detail-val">${(l.amenities||[]).map(a=>amenMap[a]||a).join(', ')||'—'}</span></div>
     <div class="detail-row"><span class="detail-label">Контакт</span><span class="detail-val">${esc(l.contact_name||'—')}</span></div>
     <div class="detail-row"><span class="detail-label">Телефон</span><span class="detail-val">${esc(l.phone||'—')}</span></div>
     <div class="detail-row"><span class="detail-label">Telegram</span><span class="detail-val">${l.telegram?'@'+esc(l.telegram):'—'}</span></div>
     <div class="detail-row"><span class="detail-label">Описание</span><span class="detail-val">${esc(l.description||'—')}</span></div>
     <div class="detail-row"><span class="detail-label">Просмотры</span><span class="detail-val">${l.views}</span></div>
-    <div class="photos-row">${photos}</div>
-  `;
-  document.getElementById('modal-overlay').classList.add('open');
+    <div class="photos-row">${photos}</div>`;
+  openModal();
 }
 
-function closeModal() {
-  document.getElementById('modal-overlay').classList.remove('open');
+// ── Edit modal ────────────────────────────────────────────────────────────────
+function openEdit(id) {
+  const l = window._lastList?.find(x => x.id === id);
+  if (!l) return;
+  document.getElementById('modal-content').innerHTML = `
+    <div class="modal-header">
+      <h3>Редактировать #${l.id}</h3>
+      <button class="modal-close" onclick="closeModal()">Отмена</button>
+    </div>
+    <div class="edit-grid">
+      <div class="form-group full"><label>Заголовок</label><input id="e-title" value="${esc(l.title)}"></div>
+      <div class="form-group"><label>Цена (₽)</label><input id="e-price" type="number" value="${l.price}"></div>
+      <div class="form-group"><label>Период</label>
+        <select id="e-period">
+          <option value="month" ${l.price_period==='month'?'selected':''}>В месяц</option>
+          <option value="day"   ${l.price_period==='day'?'selected':''}>В день</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Тип сделки</label>
+        <select id="e-deal">
+          <option value="rent" ${l.deal_type==='rent'?'selected':''}>Аренда</option>
+          <option value="sale" ${l.deal_type==='sale'?'selected':''}>Продажа</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Тип недвижимости</label>
+        <select id="e-ptype">
+          <option value="apartment" ${l.property_type==='apartment'?'selected':''}>Квартира</option>
+          <option value="house"     ${l.property_type==='house'?'selected':''}>Дом</option>
+          <option value="room"      ${l.property_type==='room'?'selected':''}>Комната</option>
+          <option value="commercial"${l.property_type==='commercial'?'selected':''}>Коммерческая</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Город</label><input id="e-city" value="${esc(l.city||'')}"></div>
+      <div class="form-group"><label>Район</label><input id="e-district" value="${esc(l.district||'')}"></div>
+      <div class="form-group full"><label>Адрес</label><input id="e-address" value="${esc(l.address||'')}"></div>
+      <div class="form-group"><label>Площадь (м²)</label><input id="e-area" type="number" value="${l.area||''}"></div>
+      <div class="form-group"><label>Этаж</label><input id="e-floor" type="number" value="${l.floor||''}"></div>
+      <div class="form-group"><label>Всего этажей</label><input id="e-floors" type="number" value="${l.floors_total||''}"></div>
+      <div class="form-group"><label>Метро</label><input id="e-metro" value="${esc(l.metro_station||'')}"></div>
+      <div class="form-group"><label>Мин до метро</label><input id="e-mmin" type="number" value="${l.metro_minutes||''}"></div>
+      <div class="form-group"><label>Контакт</label><input id="e-contact" value="${esc(l.contact_name||'')}"></div>
+      <div class="form-group"><label>Телефон</label><input id="e-phone" value="${esc(l.phone||'')}"></div>
+      <div class="form-group full"><label>Telegram (без @)</label><input id="e-tg" value="${esc(l.telegram||'')}"></div>
+      <div class="form-group full"><label>Описание</label><textarea id="e-desc">${esc(l.description||'')}</textarea></div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-save" onclick="saveEdit(${l.id})">Сохранить</button>
+      <button class="btn-cancel" onclick="closeModal()">Отмена</button>
+    </div>`;
+  openModal();
 }
 
+async function saveEdit(id) {
+  const payload = {
+    title:         v('e-title'),
+    price:         parseInt(v('e-price')) || undefined,
+    price_period:  v('e-period'),
+    deal_type:     v('e-deal'),
+    property_type: v('e-ptype'),
+    city:          v('e-city'),
+    district:      v('e-district') || null,
+    address:       v('e-address'),
+    area:          parseFloat(v('e-area')) || null,
+    floor:         parseInt(v('e-floor')) || null,
+    floors_total:  parseInt(v('e-floors')) || null,
+    metro_station: v('e-metro') || null,
+    metro_minutes: parseInt(v('e-mmin')) || null,
+    contact_name:  v('e-contact') || null,
+    phone:         v('e-phone') || null,
+    telegram:      v('e-tg') || null,
+    description:   v('e-desc') || null,
+  };
+  const r = await fetch(`${API}/admin/listings/${id}?token=${enc(TOKEN)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) { toast('Сохранено ✓'); closeModal(); loadListings(currentPage); }
+  else toast('Ошибка при сохранении');
+}
+
+// ── Stats ─────────────────────────────────────────────────────────────────────
+async function loadStats() {
+  const d = await fetch(`${API}/admin/stats?token=${enc(TOKEN)}`).then(r => r.json());
+  document.getElementById('s-total').textContent   = d.total ?? '—';
+  document.getElementById('s-active').textContent  = d.approved ?? '—';
+  document.getElementById('s-pending').textContent = d.pending ?? '—';
+  document.getElementById('s-views').textContent   = d.views ?? '—';
+}
+
+async function loadCityStats() {
+  const rows = await fetch(`${API}/admin/stats/cities?token=${enc(TOKEN)}`).then(r => r.json());
+  if (!rows.length) { document.getElementById('city-tbody').innerHTML = '<tr><td colspan="5" class="empty">Нет данных</td></tr>'; return; }
+  const max = rows[0].count;
+  document.getElementById('city-tbody').innerHTML = rows.map((r, i) => `
+    <tr>
+      <td style="color:#aaa;font-size:12px">${i+1}</td>
+      <td><strong>${esc(r.city)}</strong></td>
+      <td>${r.count}</td>
+      <td>${r.views}</td>
+      <td><div style="display:flex;align-items:center;gap:8px">
+        <div class="bar-wrap"><div class="bar-fill" style="width:${Math.round(r.count/max*100)}%"></div></div>
+        <span style="font-size:12px;color:#888">${Math.round(r.count/max*100)}%</span>
+      </div></td>
+    </tr>`).join('');
+}
+
+// ── Settings ──────────────────────────────────────────────────────────────────
+async function loadSettings() {
+  const d = await fetch(`${API}/admin/settings?token=${enc(TOKEN)}`).then(r => r.json());
+  document.getElementById('mod-toggle').checked = d.moderation_enabled;
+  document.getElementById('ttl-input').value    = d.listing_ttl_days;
+  settingsDirty = false;
+  document.getElementById('save-settings-btn').disabled = true;
+}
+
+function settingsChanged() {
+  settingsDirty = true;
+  document.getElementById('save-settings-btn').disabled = false;
+}
+
+async function saveSettings() {
+  const payload = {
+    moderation_enabled: document.getElementById('mod-toggle').checked,
+    listing_ttl_days:   parseInt(document.getElementById('ttl-input').value) || 0,
+  };
+  const r = await fetch(`${API}/admin/settings?token=${enc(TOKEN)}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+  if (r.ok) {
+    toast('Настройки сохранены ✓');
+    settingsDirty = false;
+    document.getElementById('save-settings-btn').disabled = true;
+  }
+}
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function openModal()  { document.getElementById('modal-overlay').classList.add('open'); }
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+function v(id) { return document.getElementById(id)?.value || ''; }
+function enc(s) { return encodeURIComponent(s); }
+function esc(s) { return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function fmtPrice(p) {
+  if (p >= 1000000) return (p/1000000%1===0?(p/1000000):(p/1000000).toFixed(1))+' млн';
+  if (p >= 1000)    return Math.round(p/1000)+' тыс.';
+  return p;
+}
 function toast(msg) {
   const t = document.getElementById('toast');
-  t.textContent = msg;
-  t.classList.add('show');
+  t.textContent = msg; t.classList.add('show');
   setTimeout(() => t.classList.remove('show'), 2500);
-}
-
-function esc(s) {
-  return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 </script>
 </body>
