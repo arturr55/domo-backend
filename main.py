@@ -303,8 +303,8 @@ async def get_listings(
         q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.price.desc())
     elif sort == 'views':
         q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.views.desc())
-    else:
-        q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.created_at.desc())
+    else:  # newest — strictly by date, no hot priority
+        q = q.order_by(listings_table.c.created_at.desc())
     q = q.offset((page - 1) * limit).limit(limit)
 
     rows = await database.fetch_all(q)
