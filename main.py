@@ -232,7 +232,10 @@ async def root():
 
 @app.get("/admin")
 async def admin_panel():
-    return FileResponse("static/admin.html")
+    return FileResponse(
+        "static/admin.html",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )
 
 @app.get("/listings")
 async def get_listings(
