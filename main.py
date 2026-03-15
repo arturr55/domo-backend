@@ -131,6 +131,8 @@ class ListingCreate(BaseModel):
     phone: Optional[str] = None
     telegram: Optional[str] = None
     is_urgent: bool = False
+    metro_station: Optional[str] = None
+    metro_minutes: Optional[int] = None
 
 class ListingUpdate(BaseModel):
     title: Optional[str] = None
@@ -265,6 +267,7 @@ async def get_listings(
     pets_allowed:     Optional[bool] = None,
     children_allowed: Optional[bool] = None,
     search:           Optional[str]  = None,
+    sort:             Optional[str]  = None,
     page:             int = 1,
     limit:            int = 20,
 ):
@@ -294,7 +297,14 @@ async def get_listings(
             listings_table.c.phone.ilike(term),
         ))
 
-    q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.created_at.desc())
+    if sort == 'price_asc':
+        q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.price.asc())
+    elif sort == 'price_desc':
+        q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.price.desc())
+    elif sort == 'views':
+        q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.views.desc())
+    else:
+        q = q.order_by(listings_table.c.is_hot.desc(), listings_table.c.created_at.desc())
     q = q.offset((page - 1) * limit).limit(limit)
 
     rows = await database.fetch_all(q)
@@ -361,6 +371,8 @@ async def create_listing(data: ListingCreate):
         phone=data.phone,
         telegram=data.telegram,
         is_urgent=data.is_urgent,
+        metro_station=data.metro_station,
+        metro_minutes=data.metro_minutes,
         is_hot=False,
         is_verified=False,
         views=0,
