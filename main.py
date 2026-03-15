@@ -53,6 +53,8 @@ listings_table = sqlalchemy.Table(
     sqlalchemy.Column("views",            sqlalchemy.Integer, default=0),
     sqlalchemy.Column("approved",         sqlalchemy.Boolean, default=True),
     sqlalchemy.Column("created_at",       sqlalchemy.DateTime, default=datetime.utcnow),
+    sqlalchemy.Column("metro_station",    sqlalchemy.String(100)),
+    sqlalchemy.Column("metro_minutes",    sqlalchemy.Integer),
 )
 
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
@@ -60,6 +62,15 @@ engine = sqlalchemy.create_engine(DATABASE_URL, connect_args=connect_args)
 
 with engine.begin() as conn:
     metadata.create_all(conn)
+    # migrations for new columns
+    for col_sql in [
+        "ALTER TABLE listings ADD COLUMN metro_station VARCHAR(100)",
+        "ALTER TABLE listings ADD COLUMN metro_minutes INTEGER",
+    ]:
+        try:
+            conn.execute(text(col_sql))
+        except Exception:
+            pass
 
 app = FastAPI(title="Домо API")
 
