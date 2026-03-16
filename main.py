@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -12,13 +12,18 @@ import os
 import json
 import asyncio
 import base64
+import hashlib
+import hmac
+import secrets
 from datetime import datetime, timedelta
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./domo.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-ADMIN_TOKEN = os.getenv("ADMIN_TOKEN", "changeme")
+ADMIN_TOKEN      = os.getenv("ADMIN_TOKEN", "changeme")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+GOOGLE_CLIENT_ID   = os.getenv("GOOGLE_CLIENT_ID", "")
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
@@ -80,6 +85,25 @@ payments_table = sqlalchemy.Table(
     sqlalchemy.Column("reason",               sqlalchemy.Integer),
 )
 
+users_table = sqlalchemy.Table(
+    "users", metadata,
+    sqlalchemy.Column("id",          sqlalchemy.Integer, primary_key=True, autoincrement=True),
+    sqlalchemy.Column("provider",    sqlalchemy.String(20), nullable=False),   # 'telegram' | 'google'
+    sqlalchemy.Column("provider_id", sqlalchemy.String(100), nullable=False),  # telegram_id or google sub
+    sqlalchemy.Column("name",        sqlalchemy.String(200)),
+    sqlalchemy.Column("username",    sqlalchemy.String(100)),                   # telegram @username
+    sqlalchemy.Column("avatar_url",  sqlalchemy.Text),
+    sqlalchemy.Column("created_at",  sqlalchemy.DateTime, default=datetime.utcnow),
+)
+
+sessions_table = sqlalchemy.Table(
+    "sessions", metadata,
+    sqlalchemy.Column("token",      sqlalchemy.String(64), primary_key=True),
+    sqlalchemy.Column("user_id",    sqlalchemy.Integer, nullable=False),
+    sqlalchemy.Column("created_at", sqlalchemy.DateTime, default=datetime.utcnow),
+    sqlalchemy.Column("expires_at", sqlalchemy.DateTime, nullable=False),
+)
+
 connect_args = {"check_same_thread": False} if "sqlite" in DATABASE_URL else {}
 engine = sqlalchemy.create_engine(DATABASE_URL, connect_args=connect_args)
 
@@ -101,11 +125,13 @@ for _col_sql in [
     "ALTER TABLE listings ADD COLUMN IF NOT EXISTS metro_station VARCHAR(100)",
     "ALTER TABLE listings ADD COLUMN IF NOT EXISTS metro_minutes INTEGER",
     "ALTER TABLE listings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'free'",
+    "ALTER TABLE listings ADD COLUMN IF NOT EXISTS user_id INTEGER",
     # SQLite fallback variants (no IF NOT EXISTS support for ALTER TABLE)
     *([] if _is_pg else [
         "ALTER TABLE listings ADD COLUMN metro_station VARCHAR(100)",
         "ALTER TABLE listings ADD COLUMN metro_minutes INTEGER",
         "ALTER TABLE listings ADD COLUMN payment_status VARCHAR(20)",
+        "ALTER TABLE listings ADD COLUMN user_id INTEGER",
     ]),
 ]:
     _run_migration(_col_sql)
@@ -224,6 +250,85 @@ def check_admin(token: str):
     if token != ADMIN_TOKEN:
         raise HTTPException(status_code=403, detail="Нет доступа")
 
+
+# ── Auth helpers ─────────────────────────────────────────────────────────────────
+
+def _make_token() -> str:
+    return secrets.token_hex(32)
+
+async def _upsert_user(provider: str, provider_id: str, name: str,
+                       username: str = None, avatar_url: str = None) -> int:
+    row = await database.fetch_one(
+        users_table.select().where(
+            (users_table.c.provider == provider) &
+            (users_table.c.provider_id == str(provider_id))
+        )
+    )
+    if row:
+        await database.execute(
+            users_table.update()
+            .where(users_table.c.id == row["id"])
+            .values(name=name, username=username, avatar_url=avatar_url)
+        )
+        return row["id"]
+    return await database.execute(
+        users_table.insert().values(
+            provider=provider, provider_id=str(provider_id),
+            name=name, username=username, avatar_url=avatar_url,
+            created_at=datetime.utcnow()
+        )
+    )
+
+async def _create_session(user_id: int) -> str:
+    token = _make_token()
+    expires = datetime.utcnow() + timedelta(days=365)
+    await database.execute(
+        sessions_table.insert().values(
+            token=token, user_id=user_id,
+            created_at=datetime.utcnow(), expires_at=expires
+        )
+    )
+    return token
+
+async def _get_user_by_token(token: str) -> dict | None:
+    if not token:
+        return None
+    session = await database.fetch_one(
+        sessions_table.select().where(
+            (sessions_table.c.token == token) &
+            (sessions_table.c.expires_at > datetime.utcnow())
+        )
+    )
+    if not session:
+        return None
+    user = await database.fetch_one(
+        users_table.select().where(users_table.c.id == session["user_id"])
+    )
+    return dict(user) if user else None
+
+def _verify_telegram_hash(data: dict, bot_token: str) -> bool:
+    """Проверяет подпись от Telegram Login Widget."""
+    check_hash = data.pop("hash", "")
+    data_check = "\n".join(f"{k}={v}" for k, v in sorted(data.items()))
+    secret = hashlib.sha256(bot_token.encode()).digest()
+    expected = hmac.new(secret, data_check.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, check_hash)
+
+
+# ── Auth Pydantic models ──────────────────────────────────────────────────────────
+
+class TelegramAuthData(BaseModel):
+    id: int
+    first_name: str
+    last_name: Optional[str] = None
+    username: Optional[str] = None
+    photo_url: Optional[str] = None
+    auth_date: int
+    hash: str
+
+class GoogleAuthData(BaseModel):
+    id_token: str
+
 async def get_setting(key: str, default: str = "") -> str:
     try:
         row = await database.fetch_one(
@@ -304,6 +409,67 @@ async def startup():
 @app.on_event("shutdown")
 async def shutdown():
     await database.disconnect()
+
+
+# ── Auth endpoints ───────────────────────────────────────────────────────────────
+
+@app.post("/auth/telegram")
+async def auth_telegram(data: TelegramAuthData):
+    d = data.model_dump()
+    if TELEGRAM_BOT_TOKEN and not _verify_telegram_hash(d.copy(), TELEGRAM_BOT_TOKEN):
+        raise HTTPException(status_code=401, detail="Неверная подпись Telegram")
+    name = data.first_name
+    if data.last_name:
+        name += f" {data.last_name}"
+    user_id = await _upsert_user(
+        provider="telegram",
+        provider_id=str(data.id),
+        name=name,
+        username=data.username,
+        avatar_url=data.photo_url,
+    )
+    token = await _create_session(user_id)
+    user = await database.fetch_one(users_table.select().where(users_table.c.id == user_id))
+    return {"token": token, "user": dict(user)}
+
+
+@app.post("/auth/google")
+async def auth_google(data: GoogleAuthData):
+    import urllib.request, urllib.error
+    try:
+        url = f"https://oauth2.googleapis.com/tokeninfo?id_token={data.id_token}"
+        with urllib.request.urlopen(url, timeout=5) as resp:
+            info = json.loads(resp.read())
+    except Exception:
+        raise HTTPException(status_code=401, detail="Неверный Google токен")
+    if GOOGLE_CLIENT_ID and info.get("aud") != GOOGLE_CLIENT_ID:
+        raise HTTPException(status_code=401, detail="Неверный client_id")
+    user_id = await _upsert_user(
+        provider="google",
+        provider_id=info["sub"],
+        name=info.get("name", ""),
+        username=None,
+        avatar_url=info.get("picture"),
+    )
+    token = await _create_session(user_id)
+    user = await database.fetch_one(users_table.select().where(users_table.c.id == user_id))
+    return {"token": token, "user": dict(user)}
+
+
+@app.get("/auth/me")
+async def auth_me(authorization: Optional[str] = Header(None)):
+    token = (authorization or "").replace("Bearer ", "")
+    user = await _get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    return user
+
+
+@app.delete("/auth/logout")
+async def auth_logout(authorization: Optional[str] = Header(None)):
+    token = (authorization or "").replace("Bearer ", "")
+    await database.execute(sessions_table.delete().where(sessions_table.c.token == token))
+    return {"ok": True}
 
 
 # ── Public endpoints ─────────────────────────────────────────────────────────────
@@ -405,13 +571,16 @@ async def get_listing(listing_id: int):
 
 
 @app.post("/listings", status_code=201)
-async def create_listing(data: ListingCreate):
+async def create_listing(data: ListingCreate, authorization: Optional[str] = Header(None)):
     if not data.title.strip():
         raise HTTPException(status_code=400, detail="Заголовок обязателен")
     if not data.address.strip():
         raise HTTPException(status_code=400, detail="Адрес обязателен")
     if not data.city.strip():
         raise HTTPException(status_code=400, detail="Город обязателен")
+
+    token = (authorization or "").replace("Bearer ", "")
+    current_user = await _get_user_by_token(token)
 
     moderation   = await get_setting("moderation_enabled")
     paid_mode    = await get_setting("paid_mode")
@@ -454,6 +623,7 @@ async def create_listing(data: ListingCreate):
         views=0,
         approved=auto_approve,
         payment_status="pending" if is_paid_mode else "free",
+        user_id=current_user["id"] if current_user else None,
         created_at=datetime.utcnow(),
     ))
 
@@ -497,6 +667,65 @@ async def get_listings_batch(data: BatchRequest):
         .where(listings_table.c.approved == True)
     )
     return [row_to_dict(r) for r in rows]
+
+
+@app.get("/my-listings")
+async def my_listings(authorization: Optional[str] = Header(None)):
+    token = (authorization or "").replace("Bearer ", "")
+    user = await _get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    rows = await database.fetch_all(
+        listings_table.select()
+        .where(listings_table.c.user_id == user["id"])
+        .order_by(listings_table.c.created_at.desc())
+    )
+    return [row_to_dict(r) for r in rows]
+
+
+@app.patch("/listings/{listing_id}")
+async def update_my_listing(listing_id: int, data: ListingUpdate,
+                             authorization: Optional[str] = Header(None)):
+    token = (authorization or "").replace("Bearer ", "")
+    user = await _get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    row = await database.fetch_one(
+        listings_table.select().where(listings_table.c.id == listing_id)
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Объявление не найдено")
+    if row["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    values = {k: v for k, v in data.model_dump().items() if v is not None}
+    if "amenities" in values:
+        values["amenities"] = json.dumps(values["amenities"])
+    if values:
+        await database.execute(
+            listings_table.update()
+            .where(listings_table.c.id == listing_id)
+            .values(**values)
+        )
+    return row_to_dict(await database.fetch_one(
+        listings_table.select().where(listings_table.c.id == listing_id)
+    ))
+
+
+@app.delete("/listings/{listing_id}")
+async def delete_my_listing(listing_id: int, authorization: Optional[str] = Header(None)):
+    token = (authorization or "").replace("Bearer ", "")
+    user = await _get_user_by_token(token)
+    if not user:
+        raise HTTPException(status_code=401, detail="Не авторизован")
+    row = await database.fetch_one(
+        listings_table.select().where(listings_table.c.id == listing_id)
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Объявление не найдено")
+    if row["user_id"] != user["id"]:
+        raise HTTPException(status_code=403, detail="Нет доступа")
+    await database.execute(listings_table.delete().where(listings_table.c.id == listing_id))
+    return {"ok": True}
 
 
 @app.get("/app-settings")
