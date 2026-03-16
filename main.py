@@ -1,4 +1,6 @@
 from fastapi import FastAPI, HTTPException, Request, Header
+from aiogram import Bot, Dispatcher, types
+from aiogram.filters import CommandStart
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
@@ -401,10 +403,50 @@ async def cleanup_old_listings():
 
 # ── Startup / shutdown ──────────────────────────────────────────────────────────
 
+async def _run_auth_bot():
+    """Запускает Telegram бота авторизации в фоне."""
+    if not TELEGRAM_BOT_TOKEN:
+        return
+    bot = Bot(token=TELEGRAM_BOT_TOKEN)
+    dp  = Dispatcher()
+
+    @dp.message(CommandStart())
+    async def cmd_start(message: types.Message):
+        args = message.text.split()
+        user = message.from_user
+        if len(args) < 2:
+            await message.answer(
+                "👋 Привет! Я бот приложения <b>Домо</b>.\n\n"
+                "Открой приложение и нажми «Войти через Telegram» — я помогу тебе войти.",
+                parse_mode="HTML"
+            )
+            return
+        code = args[1]
+        user_data = {
+            "id": user.id, "first_name": user.first_name or "",
+            "last_name": user.last_name, "username": user.username,
+            "photo_url": None, "auth_date": 0, "hash": "",
+        }
+        try:
+            result = await telegram_confirm(code, TelegramAuthData(**user_data))
+            await message.answer(
+                f"✅ <b>Добро пожаловать, {user.first_name}!</b>\n\n"
+                "Вы успешно вошли в приложение <b>Домо</b>.\n"
+                "Вернитесь в приложение — оно уже авторизовано 🎉",
+                parse_mode="HTML"
+            )
+        except HTTPException:
+            await message.answer("❌ Код авторизации не найден или истёк.\n\nПопробуйте ещё раз в приложении.")
+        except Exception as e:
+            await message.answer("⚠️ Ошибка подключения. Попробуйте позже.")
+
+    await dp.start_polling(bot)
+
 @app.on_event("startup")
 async def startup():
     await database.connect()
     asyncio.create_task(cleanup_old_listings())
+    asyncio.create_task(_run_auth_bot())
 
 @app.on_event("shutdown")
 async def shutdown():

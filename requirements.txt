@@ -6,3 +6,5 @@ asyncpg
 psycopg2-binary
 pydantic
 aiosqlite
+aiogram==3.7.0
+aiohttp
