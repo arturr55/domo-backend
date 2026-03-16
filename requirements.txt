@@ -7,4 +7,6 @@ psycopg2-binary
 pydantic
 aiosqlite
 aiogram==3.7.0
-aiohttp
+aiohttp==3.9.5
+pydantic==2.10.6
+pydantic-core==2.27.2
