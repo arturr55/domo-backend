@@ -413,6 +413,68 @@ async def shutdown():
 
 # ── Auth endpoints ───────────────────────────────────────────────────────────────
 
+# Хранилище pending Telegram auth кодов: {code: {expires_at, confirmed, user_id, token}}
+_tg_pending: dict = {}
+
+DOMO_BOT_USERNAME = os.getenv("DOMO_BOT_USERNAME", "domo_auth_bot")
+
+@app.post("/auth/telegram/init")
+async def telegram_init():
+    """Flutter вызывает это перед открытием бота — получает код."""
+    code = secrets.token_hex(8)
+    _tg_pending[code] = {
+        "expires_at": datetime.utcnow() + timedelta(minutes=10),
+        "confirmed": False,
+        "user_id": None,
+        "token": None,
+    }
+    return {"code": code, "bot_username": DOMO_BOT_USERNAME}
+
+
+@app.post("/auth/telegram/confirm/{code}")
+async def telegram_confirm(code: str, data: TelegramAuthData):
+    """Бот вызывает это когда пользователь нажал START."""
+    if code not in _tg_pending:
+        raise HTTPException(status_code=404, detail="Код не найден или истёк")
+    entry = _tg_pending[code]
+    if entry["confirmed"] or datetime.utcnow() > entry["expires_at"]:
+        raise HTTPException(status_code=400, detail="Код недействителен")
+
+    name = data.first_name
+    if data.last_name:
+        name += f" {data.last_name}"
+    user_id = await _upsert_user(
+        provider="telegram",
+        provider_id=str(data.id),
+        name=name,
+        username=data.username,
+        avatar_url=data.photo_url,
+    )
+    token = await _create_session(user_id)
+    entry["confirmed"] = True
+    entry["user_id"]   = user_id
+    entry["token"]     = token
+    return {"ok": True}
+
+
+@app.get("/auth/telegram/poll/{code}")
+async def telegram_poll(code: str):
+    """Flutter опрашивает это каждые 3 секунды."""
+    entry = _tg_pending.get(code)
+    if not entry:
+        return {"confirmed": False}
+    if entry["confirmed"]:
+        user = await database.fetch_one(
+            users_table.select().where(users_table.c.id == entry["user_id"])
+        )
+        del _tg_pending[code]
+        return {"confirmed": True, "token": entry["token"], "user": dict(user)}
+    if datetime.utcnow() > entry["expires_at"]:
+        del _tg_pending[code]
+        return {"confirmed": False, "expired": True}
+    return {"confirmed": False}
+
+
 @app.post("/auth/telegram")
 async def auth_telegram(data: TelegramAuthData):
     d = data.model_dump()
