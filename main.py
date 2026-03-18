@@ -66,6 +66,7 @@ listings_table = sqlalchemy.Table(
     sqlalchemy.Column("metro_station",    sqlalchemy.String(100)),
     sqlalchemy.Column("metro_minutes",    sqlalchemy.Integer),
     sqlalchemy.Column("payment_status",   sqlalchemy.String(20), default="free"),
+    sqlalchemy.Column("user_id",          sqlalchemy.Integer),
 )
 
 settings_table = sqlalchemy.Table(
