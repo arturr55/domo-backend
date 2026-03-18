@@ -223,6 +223,8 @@ class ListingUpdate(BaseModel):
     metro_minutes: Optional[int] = None
     amenities: Optional[List[str]] = None
     photos: Optional[List[str]] = None
+    lat: Optional[float] = None
+    lng: Optional[float] = None
 
 class AdminSettings(BaseModel):
     moderation_enabled: bool
