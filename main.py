@@ -128,12 +128,16 @@ for _col_sql in [
     "ALTER TABLE listings ADD COLUMN IF NOT EXISTS metro_minutes INTEGER",
     "ALTER TABLE listings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'free'",
     "ALTER TABLE listings ADD COLUMN IF NOT EXISTS user_id INTEGER",
+    "ALTER TABLE listings ADD COLUMN IF NOT EXISTS lat FLOAT",
+    "ALTER TABLE listings ADD COLUMN IF NOT EXISTS lng FLOAT",
     # SQLite fallback variants (no IF NOT EXISTS support for ALTER TABLE)
     *([] if _is_pg else [
         "ALTER TABLE listings ADD COLUMN metro_station VARCHAR(100)",
         "ALTER TABLE listings ADD COLUMN metro_minutes INTEGER",
         "ALTER TABLE listings ADD COLUMN payment_status VARCHAR(20)",
         "ALTER TABLE listings ADD COLUMN user_id INTEGER",
+        "ALTER TABLE listings ADD COLUMN lat FLOAT",
+        "ALTER TABLE listings ADD COLUMN lng FLOAT",
     ]),
 ]:
     _run_migration(_col_sql)
