@@ -217,9 +217,12 @@ class ListingUpdate(BaseModel):
     phone: Optional[str] = None
     telegram: Optional[str] = None
     is_urgent: Optional[bool] = None
+    pets_allowed: Optional[bool] = None
+    children_allowed: Optional[bool] = None
     metro_station: Optional[str] = None
     metro_minutes: Optional[int] = None
     amenities: Optional[List[str]] = None
+    photos: Optional[List[str]] = None
 
 class AdminSettings(BaseModel):
     moderation_enabled: bool
@@ -804,6 +807,13 @@ async def update_my_listing(listing_id: int, data: ListingUpdate,
     values = {k: v for k, v in data.model_dump().items() if v is not None}
     if "amenities" in values:
         values["amenities"] = json.dumps(values["amenities"])
+    if "photos" in values:
+        values["photos"] = json.dumps(values["photos"])
+    # Булевые поля могут быть False — добавляем отдельно
+    for bool_field in ("is_urgent", "pets_allowed", "children_allowed"):
+        field_val = getattr(data, bool_field)
+        if field_val is not None:
+            values[bool_field] = field_val
     if values:
         await database.execute(
             listings_table.update()
