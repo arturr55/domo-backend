@@ -685,6 +685,15 @@ async def get_listing(listing_id: int):
 
 @app.post("/listings", status_code=201)
 async def create_listing(data: ListingCreate, authorization: Optional[str] = Header(None)):
+    try:
+        return await _create_listing_impl(data, authorization)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        raise HTTPException(status_code=500, detail=str(e) + "\n" + traceback.format_exc())
+
+async def _create_listing_impl(data: ListingCreate, authorization: Optional[str]):
     if not data.title.strip():
         raise HTTPException(status_code=400, detail="Заголовок обязателен")
     if not data.address.strip():
