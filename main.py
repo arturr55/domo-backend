@@ -455,6 +455,17 @@ async def _run_auth_bot():
 @app.on_event("startup")
 async def startup():
     await database.connect()
+    migrations = [
+        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS user_id INTEGER",
+        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS metro_station VARCHAR(100)",
+        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS metro_minutes INTEGER",
+        "ALTER TABLE listings ADD COLUMN IF NOT EXISTS payment_status VARCHAR(20) DEFAULT 'free'",
+    ]
+    for sql in migrations:
+        try:
+            await database.execute(sql)
+        except Exception:
+            pass
     asyncio.create_task(cleanup_old_listings())
     asyncio.create_task(_run_auth_bot())
 
