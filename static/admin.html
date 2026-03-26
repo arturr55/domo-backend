@@ -77,10 +77,6 @@ tr:hover td { background:#fafafe; }
 .btn:hover { opacity:.8; }
 .btn-approve { background:#00b894; color:white; }
 .btn-reject  { background:#ff6b35; color:white; }
-.btn-hot     { background:#ffeee9; color:#ff6b35; border:1px solid #ffd4c4; }
-.btn-hot.on  { background:#ff6b35; color:white; }
-.btn-verify  { background:#ede9ff; color:#7b68ee; border:1px solid #d4caff; }
-.btn-verify.on { background:#7b68ee; color:white; }
 .btn-delete  { background:#ffeef0; color:#e74c3c; border:1px solid #ffd4d8; }
 .btn-edit    { background:#f0f0f8; color:#555; border:1px solid #e0e0f0; }
 .btn-view    { background:#f0f0f8; color:#555; }
@@ -418,8 +414,6 @@ function renderTable(list) {
     const deal = l.deal_type === 'sale'
       ? '<span class="badge b-sale">Продажа</span>'
       : '<span class="badge b-rent">Аренда</span>';
-    const hotCls = l.is_hot ? 'on' : '';
-    const verCls = l.is_verified ? 'on' : '';
     const appBtn = l.approved
       ? `<button class="btn btn-reject"  onclick="act(${l.id},'reject')">Откл.</button>`
       : `<button class="btn btn-approve" onclick="act(${l.id},'approve')">✓ Одобр.</button>`;
@@ -434,8 +428,6 @@ function renderTable(list) {
       <td>
         <div class="actions">
           ${appBtn}
-          <button class="btn btn-hot ${hotCls}"    onclick="act(${l.id},'hot',${!l.is_hot})"          title="${l.is_hot?'Снять горячее':'Горячее'}">🔥</button>
-          <button class="btn btn-verify ${verCls}" onclick="act(${l.id},'verified',${!l.is_verified})" title="${l.is_verified?'Снять проверку':'Проверено'}">✓</button>
           <button class="btn btn-edit"   onclick="openEdit(${l.id})">✎</button>
           <button class="btn btn-view"   onclick="openDetail(${l.id}, ${JSON.stringify(list).indexOf(JSON.stringify(l))})">👁</button>
           <button class="btn btn-delete" onclick="del(${l.id})">✕</button>
