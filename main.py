@@ -614,6 +614,30 @@ async def auth_logout(authorization: Optional[str] = Header(None)):
 async def root():
     return {"status": "ok", "app": "Домо"}
 
+def _delete_r2_keys(keys: list[str]):
+    if not keys or not R2_ACCESS_KEY:
+        return
+    s3 = boto3.client(
+        "s3",
+        endpoint_url=R2_ENDPOINT,
+        aws_access_key_id=R2_ACCESS_KEY,
+        aws_secret_access_key=R2_SECRET_KEY,
+        region_name="auto",
+    )
+    objects = [{"Key": k} for k in keys]
+    s3.delete_objects(Bucket=R2_BUCKET, Delete={"Objects": objects})
+
+
+def _extract_r2_keys(photos_json: str) -> list[str]:
+    """Извлекает ключи файлов R2 из JSON-списка URL."""
+    try:
+        urls = json.loads(photos_json or "[]")
+    except Exception:
+        return []
+    prefix = R2_PUBLIC_URL.rstrip("/") + "/"
+    return [u[len(prefix):] for u in urls if isinstance(u, str) and u.startswith(prefix)]
+
+
 @app.post("/upload")
 async def upload_photo(file: UploadFile = File(...)):
     if not R2_ACCESS_KEY or not R2_PUBLIC_URL:
@@ -893,7 +917,10 @@ async def delete_my_listing(listing_id: int, authorization: Optional[str] = Head
         raise HTTPException(status_code=404, detail="Объявление не найдено")
     if row["user_id"] != user["id"]:
         raise HTTPException(status_code=403, detail="Нет доступа")
+    keys = _extract_r2_keys(row["photos"] or "[]")
     await database.execute(listings_table.delete().where(listings_table.c.id == listing_id))
+    if keys:
+        await asyncio.get_event_loop().run_in_executor(_executor, _delete_r2_keys, keys)
     return {"ok": True}
 
 
@@ -1210,7 +1237,11 @@ async def edit_listing(lid: int, token: str, data: ListingUpdate):
 @app.delete("/admin/listings/{lid}")
 async def delete_listing(lid: int, token: str):
     check_admin(token)
+    row = await database.fetch_one(listings_table.select().where(listings_table.c.id == lid))
+    keys = _extract_r2_keys(row["photos"] or "[]") if row else []
     await database.execute(listings_table.delete().where(listings_table.c.id == lid))
+    if keys:
+        await asyncio.get_event_loop().run_in_executor(_executor, _delete_r2_keys, keys)
     return {"message": "Удалено"}
 
 
