@@ -8,3 +8,5 @@ pydantic
 aiosqlite
 aiogram==3.13.1
 aiohttp
+boto3
+python-multipart

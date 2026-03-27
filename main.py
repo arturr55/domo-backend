@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Request, Header
+from fastapi import FastAPI, HTTPException, Request, Header, UploadFile, File
 from aiogram import Bot, Dispatcher, types
 from aiogram.filters import CommandStart
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +17,10 @@ import base64
 import hashlib
 import hmac
 import secrets
+import uuid
 from datetime import datetime, timedelta
+from concurrent.futures import ThreadPoolExecutor
+import boto3
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./domo.db")
 if DATABASE_URL.startswith("postgres://"):
@@ -26,6 +29,14 @@ if DATABASE_URL.startswith("postgres://"):
 ADMIN_TOKEN      = os.getenv("ADMIN_TOKEN", "changeme")
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 GOOGLE_CLIENT_ID   = os.getenv("GOOGLE_CLIENT_ID", "")
+
+R2_ACCESS_KEY = os.getenv("R2_ACCESS_KEY", "")
+R2_SECRET_KEY = os.getenv("R2_SECRET_KEY", "")
+R2_ENDPOINT   = os.getenv("R2_ENDPOINT", "https://f0971e385f6c546b5f3eefb4912f1d94.r2.cloudflarestorage.com")
+R2_BUCKET     = os.getenv("R2_BUCKET", "domo-photos")
+R2_PUBLIC_URL = os.getenv("R2_PUBLIC_URL", "")
+
+_executor = ThreadPoolExecutor(max_workers=4)
 
 database = databases.Database(DATABASE_URL)
 metadata = sqlalchemy.MetaData()
@@ -602,6 +613,32 @@ async def auth_logout(authorization: Optional[str] = Header(None)):
 @app.get("/")
 async def root():
     return {"status": "ok", "app": "Домо"}
+
+@app.post("/upload")
+async def upload_photo(file: UploadFile = File(...)):
+    if not R2_ACCESS_KEY or not R2_PUBLIC_URL:
+        raise HTTPException(status_code=503, detail="Storage not configured")
+    ext = (file.filename or "photo.jpg").rsplit(".", 1)[-1].lower()
+    if ext not in ("jpg", "jpeg", "png", "webp"):
+        ext = "jpg"
+    key = f"{uuid.uuid4()}.{ext}"
+    contents = await file.read()
+    content_type = file.content_type or "image/jpeg"
+
+    def _upload():
+        s3 = boto3.client(
+            "s3",
+            endpoint_url=R2_ENDPOINT,
+            aws_access_key_id=R2_ACCESS_KEY,
+            aws_secret_access_key=R2_SECRET_KEY,
+            region_name="auto",
+        )
+        s3.put_object(Bucket=R2_BUCKET, Key=key, Body=contents, ContentType=content_type)
+
+    loop = asyncio.get_event_loop()
+    await loop.run_in_executor(_executor, _upload)
+    return {"url": f"{R2_PUBLIC_URL.rstrip('/')}/{key}"}
+
 
 @app.get("/admin")
 async def admin_panel():
