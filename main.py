@@ -768,6 +768,15 @@ async def create_listing(data: ListingCreate, authorization: Optional[str] = Hea
     token = (authorization or "").replace("Bearer ", "")
     current_user = await _get_user_by_token(token)
 
+    if current_user:
+        active_count = await database.fetch_val(
+            select(func.count()).select_from(listings_table).where(
+                listings_table.c.user_id == current_user["id"]
+            )
+        )
+        if (active_count or 0) >= 10:
+            raise HTTPException(status_code=400, detail="Достигнут лимит объявлений (максимум 10)")
+
     moderation   = await get_setting("moderation_enabled")
     paid_mode    = await get_setting("paid_mode")
     price_uzs    = await get_setting("listing_price_uzs")
