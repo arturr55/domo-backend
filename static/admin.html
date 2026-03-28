@@ -155,6 +155,18 @@ tr:hover td { background:#fafafe; }
 /* Toast */
 #toast { position:fixed; bottom:24px; right:24px; background:#1a1a2e; color:white; padding:12px 20px; border-radius:10px; font-size:13px; font-weight:600; opacity:0; transition:opacity .3s; z-index:9999; pointer-events:none; }
 #toast.show { opacity:1; }
+
+/* Confirm dialog */
+#confirm-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.5); z-index:2000; align-items:center; justify-content:center; }
+#confirm-overlay.open { display:flex; }
+#confirm-box { background:white; border-radius:16px; padding:28px; max-width:360px; width:90%; box-shadow:0 20px 60px rgba(0,0,0,.3); text-align:center; }
+#confirm-box h3 { font-size:17px; font-weight:700; margin-bottom:8px; color:#1a1a2e; }
+#confirm-box p { font-size:14px; color:#888; margin-bottom:24px; }
+.confirm-actions { display:flex; gap:10px; justify-content:center; }
+.confirm-actions .btn-no  { padding:10px 24px; background:#f0f0f8; color:#555; border:none; border-radius:9px; font-size:14px; font-weight:600; cursor:pointer; }
+.confirm-actions .btn-yes { padding:10px 24px; background:#e74c3c; color:white; border:none; border-radius:9px; font-size:14px; font-weight:700; cursor:pointer; }
+.confirm-actions .btn-yes:hover { background:#c0392b; }
+.confirm-actions .btn-no:hover  { background:#e0e0f0; }
 </style>
 </head>
 <body>
@@ -326,6 +338,18 @@ tr:hover td { background:#fafafe; }
 </div>
 <div id="toast"></div>
 
+<!-- Confirm delete dialog -->
+<div id="confirm-overlay">
+  <div id="confirm-box">
+    <h3>Удалить объявление?</h3>
+    <p id="confirm-msg">Это действие нельзя отменить.</p>
+    <div class="confirm-actions">
+      <button class="btn-no"  onclick="confirmClose()">Отмена</button>
+      <button class="btn-yes" onclick="confirmOk()">Удалить</button>
+    </div>
+  </div>
+</div>
+
 <script>
 const API = 'https://domo-backend-production.up.railway.app';
 let TOKEN = '';
@@ -472,8 +496,20 @@ async function act(id, type, value) {
   if (r.ok) { toast(type==='approve'?'Одобрено ✓':type==='reject'?'Отклонено':'Обновлено'); loadListings(currentPage); }
 }
 
-async function del(id) {
-  if (!confirm(`Удалить объявление #${id}?`)) return;
+let _delId = null;
+function del(id) {
+  _delId = id;
+  document.getElementById('confirm-msg').textContent = `Объявление #${id} будет удалено безвозвратно.`;
+  document.getElementById('confirm-overlay').classList.add('open');
+}
+function confirmClose() {
+  _delId = null;
+  document.getElementById('confirm-overlay').classList.remove('open');
+}
+async function confirmOk() {
+  if (!_delId) return;
+  const id = _delId;
+  confirmClose();
   const r = await fetch(`${API}/admin/listings/${id}?token=${enc(TOKEN)}`, { method: 'DELETE' });
   if (r.ok) { toast('Удалено'); loadListings(currentPage); }
 }
