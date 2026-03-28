@@ -427,8 +427,10 @@ function renderTable(list) {
     return;
   }
   const rows = list.map(l => {
-    const photo = l.photos?.length
-      ? `<img class="photo-thumb" src="data:image/jpeg;base64,${l.photos[0]}" onerror="this.parentNode.innerHTML='<div class=no-photo>🏠</div>'">`
+    const p0 = l.photos?.[0];
+    const photoSrc = p0 ? (p0.startsWith('http') ? p0 : `data:image/jpeg;base64,${p0}`) : null;
+    const photo = photoSrc
+      ? `<img class="photo-thumb" src="${photoSrc}" onerror="this.parentNode.innerHTML='<div class=no-photo>🏠</div>'">`
       : `<div class="no-photo">🏠</div>`;
     const price = fmtPrice(l.price);
     const date  = l.created_at ? new Date(l.created_at).toLocaleDateString('ru') : '';
@@ -521,7 +523,7 @@ function openDetail(id, idx) {
   const amenMap = {wifi:'Wi-Fi',parking:'Паркинг',balcony:'Балкон',elevator:'Лифт',
     security:'Охрана',gym:'Зал',pool:'Бассейн',washer:'Стиралка',
     ac:'Кондиционер',furniture:'Мебель',fridge:'Холодильник',dishwasher:'Посудомойка'};
-  const photos = (l.photos||[]).map(p => `<img src="data:image/jpeg;base64,${p}">`).join('');
+  const photos = (l.photos||[]).map(p => `<img src="${p.startsWith('http') ? p : 'data:image/jpeg;base64,'+p}" style="width:100px;height:78px;object-fit:cover;border-radius:8px;">`).join('');
   document.getElementById('modal-content').innerHTML = `
     <div class="modal-header">
       <h3>#${l.id} — ${esc(l.title)}</h3>
