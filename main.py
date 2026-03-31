@@ -696,7 +696,22 @@ async def get_listings(
 ):
     q = listings_table.select().where(listings_table.c.approved == True)
 
-    if city:          q = q.where(listings_table.c.city.ilike(f"%{city}%"))
+    if city:
+        _city_aliases = {
+            'Termiz': ['Termiz', 'Термез', 'Termez'],
+            'Toshkent': ['Toshkent', 'Ташкент', 'Tashkent'],
+            'Samarqand': ['Samarqand', 'Самарканд', 'Samarkand'],
+            'Buxoro': ['Buxoro', 'Бухара', 'Bukhara'],
+            'Namangan': ['Namangan', 'Наманган'],
+            'Andijon': ['Andijon', 'Андижан', 'Andijan'],
+            "Farg'ona": ["Farg'ona", 'Фергана', 'Fergana', 'Fargona'],
+            'Nukus': ['Nukus', 'Нукус'],
+            'Qarshi': ['Qarshi', 'Карши', 'Karshi'],
+            'Navoiy': ['Navoiy', 'Навои', 'Navoi'],
+            'Urganch': ['Urganch', 'Ургенч', 'Urgench'],
+        }
+        variants = _city_aliases.get(city, [city])
+        q = q.where(or_(*[listings_table.c.city.ilike(f"%{v}%") for v in variants]))
     if deal_type:     q = q.where(listings_table.c.deal_type == deal_type)
     if property_type: q = q.where(listings_table.c.property_type == property_type)
     if rooms:         q = q.where(listings_table.c.rooms == rooms)
