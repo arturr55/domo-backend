@@ -455,7 +455,7 @@ function renderTable(list) {
         <div class="actions">
           ${appBtn}
           <button class="btn btn-edit"   onclick="openEdit(${l.id})">✎</button>
-          <button class="btn btn-view"   onclick="openDetail(${l.id}, ${JSON.stringify(list).indexOf(JSON.stringify(l))})">👁</button>
+          <button class="btn btn-view"   onclick="openDetail(${l.id})">👁</button>
           <button class="btn btn-delete" onclick="del(${l.id})">✕</button>
         </div>
       </td>
@@ -517,8 +517,8 @@ async function confirmOk() {
 }
 
 // ── Detail modal ──────────────────────────────────────────────────────────────
-function openDetail(id, idx) {
-  const l = window._lastList?.[idx] || window._lastList?.find(x => x.id === id);
+function openDetail(id) {
+  const l = window._lastList?.find(x => x.id === id);
   if (!l) return;
   const amenMap = {wifi:'Wi-Fi',parking:'Паркинг',balcony:'Балкон',elevator:'Лифт',
     security:'Охрана',gym:'Зал',pool:'Бассейн',washer:'Стиралка',
